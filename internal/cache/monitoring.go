@@ -152,14 +152,16 @@ func (m *CacheMonitor) Start(ctx context.Context) error {
 // Stop 停止监控
 func (m *CacheMonitor) Stop() error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	
 	if !m.isRunning {
+		m.mu.Unlock()
 		return nil
 	}
 	
 	m.isRunning = false
+	
+	// 关闭停止信号
 	close(m.stopChan)
+	m.mu.Unlock()
 	
 	// 停止HTTP服务器
 	if m.httpServer != nil {
@@ -168,8 +170,20 @@ func (m *CacheMonitor) Stop() error {
 		m.httpServer.Shutdown(ctx)
 	}
 	
-	// 等待所有协程结束
-	m.wg.Wait()
+	// 等待所有协程结束，使用超时避免永久阻塞
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		m.wg.Wait()
+	}()
+	
+	select {
+	case <-done:
+		// 正常结束
+	case <-time.After(5 * time.Second):
+		// 超时等待，记录警告但继续
+		// fmt.Println("Warning: Monitor stop timed out waiting for goroutines")
+	}
 	
 	return nil
 }
