@@ -60,43 +60,35 @@ func (m *CacheMetrics) GetStats() map[string]interface{} {
 	}
 }
 
-// coalescingResult 查询合并结果
-type coalescingResult struct {
-	result *CachedResult
-	err    error
-}
-
-// coalescingGroup 查询合并组
-type coalescingGroup struct {
-	result chan coalescingResult
-	count  int
-}
-
 // CacheManager 缓存管理器
 type CacheManager struct {
-	storage          *CacheStorage
-	metrics          *CacheMetrics
-	ttl              time.Duration
-	cleanupInterval  time.Duration
-	coalescing       map[string]*coalescingGroup
-	coalescingMutex  sync.Mutex
-	stopCleanup      chan struct{}
-	cleanupStopped   chan struct{}
+	storage            *CacheStorage
+	metrics            *CacheMetrics
+	queryCoalescer     *QueryCoalescer
+	concurrencyManager *ConcurrencyManager
+	ttl                time.Duration
+	cleanupInterval    time.Duration
+	stopCleanup        chan struct{}
+	cleanupStopped     chan struct{}
 }
 
 // CacheConfig 缓存配置
 type CacheConfig struct {
-	MaxSize         int64         `json:"max_size"`         // 最大缓存大小（字节）
-	TTL             time.Duration `json:"ttl"`              // 缓存生存时间
-	CleanupInterval time.Duration `json:"cleanup_interval"` // 清理间隔
+	MaxSize            int64                  `json:"max_size"`            // 最大缓存大小（字节）
+	TTL                time.Duration          `json:"ttl"`                 // 缓存生存时间
+	CleanupInterval    time.Duration          `json:"cleanup_interval"`    // 清理间隔
+	CoalescingConfig   *CoalescingConfig      `json:"coalescing_config"`   // 查询合并配置
+	ConcurrencyConfig  *ConcurrencyConfig     `json:"concurrency_config"`  // 并发控制配置
 }
 
 // DefaultCacheConfig 默认缓存配置
 func DefaultCacheConfig() *CacheConfig {
 	return &CacheConfig{
-		MaxSize:         512 * 1024 * 1024, // 512MB
-		TTL:             15 * time.Minute,   // 15分钟
-		CleanupInterval: 5 * time.Minute,    // 5分钟清理一次
+		MaxSize:           512 * 1024 * 1024, // 512MB
+		TTL:               15 * time.Minute,   // 15分钟
+		CleanupInterval:   5 * time.Minute,    // 5分钟清理一次
+		CoalescingConfig:  DefaultCoalescingConfig(),
+		ConcurrencyConfig: DefaultConcurrencyConfig(),
 	}
 }
 
@@ -107,13 +99,14 @@ func NewCacheManager(config *CacheConfig) *CacheManager {
 	}
 	
 	cm := &CacheManager{
-		storage:          NewCacheStorage(config.MaxSize),
-		metrics:          &CacheMetrics{StartTime: time.Now()},
-		ttl:              config.TTL,
-		cleanupInterval:  config.CleanupInterval,
-		coalescing:       make(map[string]*coalescingGroup),
-		stopCleanup:      make(chan struct{}),
-		cleanupStopped:   make(chan struct{}),
+		storage:            NewCacheStorage(config.MaxSize),
+		metrics:            &CacheMetrics{StartTime: time.Now()},
+		queryCoalescer:     NewQueryCoalescer(config.CoalescingConfig),
+		concurrencyManager: NewConcurrencyManager(config.ConcurrencyConfig),
+		ttl:                config.TTL,
+		cleanupInterval:    config.CleanupInterval,
+		stopCleanup:        make(chan struct{}),
+		cleanupStopped:     make(chan struct{}),
 	}
 	
 	// 启动后台清理协程
@@ -195,114 +188,77 @@ func (cm *CacheManager) GetOrSet(ctx context.Context, key string, fn func(ctx co
 		return data, nil
 	}
 	
-	// 使用查询合并防止重复请求
-	return cm.getOrSetWithCoalescing(ctx, key, fn)
-}
-
-// getOrSetWithCoalescing 带查询合并的获取或设置
-func (cm *CacheManager) getOrSetWithCoalescing(ctx context.Context, key string, fn func(ctx context.Context) (interface{}, error)) (interface{}, error) {
-	cm.coalescingMutex.Lock()
-	
-	// 检查是否已有相同查询在执行
-	if group, exists := cm.coalescing[key]; exists {
-		// 有相同查询在执行，等待结果
-		group.count++
-		cm.coalescingMutex.Unlock()
-		
-		select {
-		case result := <-group.result:
-			if result.err != nil {
-				return nil, result.err
-			}
-			if result.result != nil {
-				return result.result.Data, nil
-			}
-			return nil, errors.New("unexpected nil result")
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
-	}
-	
-	// 创建新的查询合并组
-	group := &coalescingGroup{
-		result: make(chan coalescingResult),
-		count:  1,
-	}
-	cm.coalescing[key] = group
-	cm.coalescingMutex.Unlock()
-	
-	// 执行查询
-	go func() {
-		defer func() {
-			cm.coalescingMutex.Lock()
-			delete(cm.coalescing, key)
-			cm.coalescingMutex.Unlock()
-		}()
-		
-		// 再次检查缓存（可能在等待锁期间被其他协程设置）
+	// 使用新的查询合并器
+	return cm.queryCoalescer.Execute(ctx, key, func(ctx context.Context) (interface{}, error) {
+		// 再次检查缓存（双重检查）
 		if data, found := cm.Get(key); found {
-			result := coalescingResult{
-				result: &CachedResult{Data: data},
-				err:    nil,
-			}
-			cm.broadcastResult(group, result)
-			return
+			return data, nil
 		}
 		
 		// 执行函数获取数据
 		data, err := fn(ctx)
 		if err != nil {
-			result := coalescingResult{
-				result: nil,
-				err:    err,
-			}
-			cm.broadcastResult(group, result)
-			return
+			return nil, err
 		}
 		
 		// 缓存结果
 		if setErr := cm.Set(key, data); setErr != nil {
 			// 缓存失败，但返回数据
-			result := coalescingResult{
-				result: &CachedResult{Data: data},
-				err:    nil,
-			}
-			cm.broadcastResult(group, result)
-			return
+			return data, nil
 		}
 		
-		result := coalescingResult{
-			result: &CachedResult{Data: data},
-			err:    nil,
-		}
-		cm.broadcastResult(group, result)
-	}()
-	
-	// 等待结果
-	select {
-	case result := <-group.result:
-		if result.err != nil {
-			return nil, result.err
-		}
-		if result.result != nil {
-			return result.result.Data, nil
-		}
-		return nil, errors.New("unexpected nil result")
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+		return data, nil
+	})
 }
 
-// broadcastResult 广播结果到所有等待的goroutine
-func (cm *CacheManager) broadcastResult(group *coalescingGroup, result coalescingResult) {
-	// 发送结果到所有等待的goroutine
-	for i := 0; i < group.count; i++ {
-		select {
-		case group.result <- result:
-		default:
-			// 如果通道已满，跳过这个发送
-		}
+// GetOrSetWithConcurrency 在并发控制下获取或设置缓存
+func (cm *CacheManager) GetOrSetWithConcurrency(ctx context.Context, key string, fn func(ctx context.Context) (interface{}, error)) (interface{}, error) {
+	// 先尝试获取缓存
+	if data, found := cm.Get(key); found {
+		return data, nil
 	}
+	
+	// 在并发限制下执行
+	var result interface{}
+	var err error
+	
+	execErr := cm.concurrencyManager.ExecuteWithLimits(ctx, func() error {
+		// 再次检查缓存
+		if data, found := cm.Get(key); found {
+			result = data
+			return nil
+		}
+		
+		// 使用查询合并器执行
+		data, execErr := cm.queryCoalescer.Execute(ctx, key, func(ctx context.Context) (interface{}, error) {
+			return fn(ctx)
+		})
+		
+		if execErr != nil {
+			err = execErr
+			return execErr
+		}
+		
+		// 缓存结果
+		if setErr := cm.Set(key, data); setErr != nil {
+			// 缓存失败，但返回数据
+			result = data
+			return nil
+		}
+		
+		result = data
+		return nil
+	})
+	
+	if execErr != nil {
+		return nil, execErr
+	}
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	return result, nil
 }
 
 // backgroundCleanup 后台清理过期项
@@ -368,6 +324,8 @@ func (cm *CacheManager) Warmup(ctx context.Context, data map[string]interface{})
 func (cm *CacheManager) GetStats() map[string]interface{} {
 	metricsStats := cm.metrics.GetStats()
 	storageStats := cm.storage.GetStats()
+	coalescingStats := cm.queryCoalescer.GetStats()
+	concurrencyStats := cm.concurrencyManager.GetStats()
 	
 	// 合并统计信息
 	stats := make(map[string]interface{})
@@ -376,6 +334,12 @@ func (cm *CacheManager) GetStats() map[string]interface{} {
 	}
 	for k, v := range storageStats {
 		stats[k] = v
+	}
+	for k, v := range coalescingStats {
+		stats["coalescing_"+k] = v
+	}
+	for k, v := range concurrencyStats {
+		stats["concurrency_"+k] = v
 	}
 	
 	return stats
@@ -393,19 +357,15 @@ func (cm *CacheManager) Close() error {
 		// 超时等待
 	}
 	
-	// 清空所有合并中的查询
-	cm.coalescingMutex.Lock()
-	for key, group := range cm.coalescing {
-		// 发送关闭错误到所有等待的goroutine
-		for i := 0; i < group.count; i++ {
-			select {
-			case group.result <- coalescingResult{err: errors.New("cache manager is closing")}:
-			default:
-			}
-		}
-		delete(cm.coalescing, key)
+	// 关闭查询合并器
+	if err := cm.queryCoalescer.Close(); err != nil {
+		return err
 	}
-	cm.coalescingMutex.Unlock()
+	
+	// 关闭并发管理器
+	if err := cm.concurrencyManager.Close(); err != nil {
+		return err
+	}
 	
 	return nil
 }
@@ -445,4 +405,29 @@ func (cm *CacheManager) SetCleanupInterval(interval time.Duration) {
 // ForceCleanup 强制执行清理
 func (cm *CacheManager) ForceCleanup() {
 	cm.cleanupExpired()
+}
+
+// SubmitToWorkerPool 提交任务到工作池
+func (cm *CacheManager) SubmitToWorkerPool(task func()) error {
+	return cm.concurrencyManager.SubmitToWorkerPool(task)
+}
+
+// GetCoalescingStats 获取查询合并统计
+func (cm *CacheManager) GetCoalescingStats() map[string]interface{} {
+	return cm.queryCoalescer.GetStats()
+}
+
+// GetConcurrencyStats 获取并发控制统计
+func (cm *CacheManager) GetConcurrencyStats() map[string]interface{} {
+	return cm.concurrencyManager.GetStats()
+}
+
+// HasActiveCoalescingGroup 检查是否有活跃的合并组
+func (cm *CacheManager) HasActiveCoalescingGroup(key string) bool {
+	return cm.queryCoalescer.HasActiveGroup(key)
+}
+
+// ActiveCoalescingGroupsCount 返回活跃合并组数量
+func (cm *CacheManager) ActiveCoalescingGroupsCount() int {
+	return cm.queryCoalescer.ActiveGroupsCount()
 }
