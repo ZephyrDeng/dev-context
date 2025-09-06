@@ -66,13 +66,13 @@ func (s *ResponseTimeStats) GetStats() map[string]interface{} {
 	
 	if s.count == 0 {
 		return map[string]interface{}{
-			"count":       0,
-			"average_ms":  0,
-			"min_ms":      0,
-			"max_ms":      0,
-			"p50_ms":      0,
-			"p95_ms":      0,
-			"p99_ms":      0,
+			"count":       int64(0),
+			"average_ms":  0.0,
+			"min_ms":      0.0,
+			"max_ms":      0.0,
+			"p50_ms":      0.0,
+			"p95_ms":      0.0,
+			"p99_ms":      0.0,
 		}
 	}
 	
@@ -436,7 +436,7 @@ func (m *DetailedCacheMetrics) GetDetailedStats() map[string]interface{} {
 	detailedStats["top_accessed_keys"] = topKeys
 	
 	// 高级统计
-	detailedStats["hourly_hits"] = m.copyIntMap(m.HourlyStats)
+	detailedStats["hourly_hits"] = m.copyIntMapFromHourly(m.HourlyStats)
 	detailedStats["type_distribution"] = m.copyIntMap(m.TypeStats)
 	detailedStats["size_distribution"] = m.copyIntMap(m.SizeDistribution)
 	detailedStats["error_count"] = m.ErrorCount
@@ -488,6 +488,15 @@ func (m *DetailedCacheMetrics) copyIntMap(src map[string]int64) map[string]int64
 	dst := make(map[string]int64)
 	for k, v := range src {
 		dst[k] = v
+	}
+	return dst
+}
+
+// copyIntMapFromHourly 从小时映射复制（内部方法）
+func (m *DetailedCacheMetrics) copyIntMapFromHourly(src map[int]int64) map[string]int64 {
+	dst := make(map[string]int64)
+	for k, v := range src {
+		dst[fmt.Sprintf("%d", k)] = v
 	}
 	return dst
 }

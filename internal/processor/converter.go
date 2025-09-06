@@ -13,8 +13,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"internal/collector"
-	"internal/models"
+	"frontend-news-mcp/internal/collector"
+	"frontend-news-mcp/internal/models"
 )
 
 // Converter handles conversion from raw collector data to unified Article/Repository models

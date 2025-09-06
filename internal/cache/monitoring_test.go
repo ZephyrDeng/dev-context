@@ -73,13 +73,13 @@ func TestCacheMonitorStartStop(t *testing.T) {
 	metrics := NewDetailedCacheMetrics(config.MaxSize)
 	monitoringConfig := DefaultMonitoringConfig()
 	monitoringConfig.EnableHTTPEndpoints = false
-	monitoringConfig.MetricsInterval = 100 * time.Millisecond
-	monitoringConfig.HealthCheckInterval = 100 * time.Millisecond
+	monitoringConfig.MetricsInterval = 50 * time.Millisecond
+	monitoringConfig.HealthCheckInterval = 50 * time.Millisecond
 	
 	monitor := NewCacheMonitor(cm, metrics, monitoringConfig)
 	
 	// 启动监控
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 	
 	err := monitor.Start(ctx)
@@ -91,8 +91,8 @@ func TestCacheMonitorStartStop(t *testing.T) {
 		t.Error("Monitor should be running after start")
 	}
 	
-	// 等待一段时间让后台协程运行
-	time.Sleep(200 * time.Millisecond)
+	// 等待一短时间让后台协程运行
+	time.Sleep(100 * time.Millisecond)
 	
 	// 停止监控
 	err = monitor.Stop()

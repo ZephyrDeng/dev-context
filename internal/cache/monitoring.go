@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -503,6 +502,9 @@ func (m *CacheMonitor) collectMetrics() {
 	
 	// 记录调试信息
 	m.mu.Lock()
+	if m.debugData["collection_count"] == nil {
+		m.debugData["collection_count"] = int64(0)
+	}
 	m.debugData["last_collection"] = time.Now()
 	m.debugData["collection_count"] = m.debugData["collection_count"].(int64) + 1
 	m.mu.Unlock()
@@ -560,20 +562,27 @@ func (m *CacheMonitor) recordAlert(level, message string, metadata map[string]in
 	
 	// 检查告警去重（同样的消息在5分钟内只告警一次）
 	alertKey := fmt.Sprintf("%s:%s", level, message)
-	m.mu.RLock()
-	lastTime, exists := m.lastAlerts[alertKey]
-	m.mu.RUnlock()
 	
-	if exists && time.Since(lastTime) < 5*time.Minute {
+	// 使用单独的锁操作来避免死锁
+	shouldSkip := false
+	m.mu.Lock()
+	if lastTime, exists := m.lastAlerts[alertKey]; exists && time.Since(lastTime) < 5*time.Minute {
+		shouldSkip = true
+	} else {
+		m.lastAlerts[alertKey] = time.Now()
+	}
+	
+	// 复制回调列表避免在调用时持有锁
+	callbacks := make([]AlertCallback, len(m.alertCallbacks))
+	copy(callbacks, m.alertCallbacks)
+	m.mu.Unlock()
+	
+	if shouldSkip {
 		return // 跳过重复告警
 	}
 	
-	m.mu.Lock()
-	m.lastAlerts[alertKey] = time.Now()
-	m.mu.Unlock()
-	
 	// 调用告警回调
-	for _, callback := range m.alertCallbacks {
+	for _, callback := range callbacks {
 		go callback(alert) // 异步调用避免阻塞
 	}
 }
