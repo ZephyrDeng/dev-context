@@ -89,26 +89,29 @@ func (c *Converter) ConvertToArticle(collectorArticle collector.Article) (*model
 		return nil, fmt.Errorf("invalid collector article: %w", err)
 	}
 
+	// Apply source-specific processing based on sourceType
+	processedArticle := c.applySourceSpecificProcessing(collectorArticle)
+
 	// Create new article with basic required fields
 	article := models.NewArticle(
-		c.normalizeTitle(collectorArticle.Title),
-		c.normalizeURL(collectorArticle.URL),
-		c.normalizeSource(collectorArticle.Source),
-		c.normalizeSourceType(collectorArticle.SourceType),
+		c.normalizeTitle(processedArticle.Title),
+		c.normalizeURL(processedArticle.URL),
+		c.normalizeSource(processedArticle.Source),
+		c.normalizeSourceType(processedArticle.SourceType),
 	)
 
 	// Set publication time
-	if !collectorArticle.PublishedAt.IsZero() {
-		article.PublishedAt = c.normalizeTime(collectorArticle.PublishedAt)
+	if !processedArticle.PublishedAt.IsZero() {
+		article.PublishedAt = c.normalizeTime(processedArticle.PublishedAt)
 	}
 
 	// Process and set content
-	if collectorArticle.Content != "" {
-		article.Content = c.cleanAndNormalizeContent(collectorArticle.Content)
+	if processedArticle.Content != "" {
+		article.Content = c.cleanAndNormalizeContent(processedArticle.Content)
 	}
 
 	// Process and set summary
-	summary := c.generateSummary(collectorArticle.Summary, collectorArticle.Content)
+	summary := c.generateSummary(processedArticle.Summary, processedArticle.Content)
 	if err := article.SetSummary(summary); err != nil {
 		// If summary is invalid, try to generate a shorter one
 		summary = c.truncateText(summary, c.config.MaxSummaryLength/2)
@@ -118,23 +121,23 @@ func (c *Converter) ConvertToArticle(collectorArticle collector.Article) (*model
 	}
 
 	// Process tags
-	if len(collectorArticle.Tags) > 0 {
-		normalizedTags := c.normalizeTags(collectorArticle.Tags)
+	if len(processedArticle.Tags) > 0 {
+		normalizedTags := c.normalizeTags(processedArticle.Tags)
 		article.AddTags(normalizedTags...)
 	}
 
 	// Set author in metadata if available
-	if collectorArticle.Author != "" {
-		article.SetMetadata("author", c.normalizeText(collectorArticle.Author))
+	if processedArticle.Author != "" {
+		article.SetMetadata("author", c.normalizeText(processedArticle.Author))
 	}
 
 	// Set language in metadata if available
-	if collectorArticle.Language != "" {
-		article.SetMetadata("language", strings.ToLower(strings.TrimSpace(collectorArticle.Language)))
+	if processedArticle.Language != "" {
+		article.SetMetadata("language", strings.ToLower(strings.TrimSpace(processedArticle.Language)))
 	}
 
 	// Copy original metadata
-	for key, value := range collectorArticle.Metadata {
+	for key, value := range processedArticle.Metadata {
 		article.SetMetadata(key, value)
 	}
 
@@ -373,11 +376,11 @@ func (c *Converter) cleanAndNormalizeContent(content string) string {
 		return ""
 	}
 
-	// Decode HTML entities
-	content = html.UnescapeString(content)
-	
-	// Remove HTML tags
+	// Remove HTML tags first (before decoding entities)
 	content = c.removeHTMLTags(content)
+	
+	// Decode HTML entities after removing tags
+	content = html.UnescapeString(content)
 	
 	// Remove special characters that might cause issues
 	content = c.removeSpecialCharacters(content)
@@ -632,4 +635,207 @@ func (c *Converter) GenerateHash(title, url string) string {
 	content := strings.ToLower(strings.TrimSpace(title)) + "|" + strings.TrimSpace(url)
 	hash := md5.Sum([]byte(content))
 	return fmt.Sprintf("%x", hash)
+}
+
+// Source-specific processing methods
+
+// applySourceSpecificProcessing applies processing logic based on the data source type
+func (c *Converter) applySourceSpecificProcessing(article collector.Article) collector.Article {
+	switch strings.ToLower(article.SourceType) {
+	case "rss":
+		return c.processRSSArticle(article)
+	case "api":
+		return c.processAPIArticle(article)
+	case "html":
+		return c.processHTMLArticle(article)
+	default:
+		return article
+	}
+}
+
+// processRSSArticle applies RSS-specific processing logic
+func (c *Converter) processRSSArticle(article collector.Article) collector.Article {
+	processed := article // Make a copy
+
+	// RSS-specific title cleaning (often has extra prefixes/suffixes)
+	if processed.Title != "" {
+		// Remove common RSS feed prefixes like "RSS:" or "[RSS]"
+		rssPatterns := []string{`^RSS:\s*`, `^\[RSS\]\s*`, `^\[.*?\]\s*`}
+		for _, pattern := range rssPatterns {
+			if re := regexp.MustCompile(pattern); re != nil {
+				processed.Title = re.ReplaceAllString(processed.Title, "")
+			}
+		}
+	}
+
+	// RSS often has better structured content, prioritize RSS summary
+	if processed.Summary == "" && processed.Content != "" {
+		// Generate summary from first paragraph of RSS content
+		processed.Summary = c.extractFirstParagraph(processed.Content)
+	}
+
+	// RSS feeds often have reliable publication dates, but normalize timezone
+	if !processed.PublishedAt.IsZero() {
+		// RSS dates are usually already well-formatted, just normalize to UTC
+		processed.PublishedAt = processed.PublishedAt.UTC()
+	}
+
+	return processed
+}
+
+// processAPIArticle applies API-specific processing logic
+func (c *Converter) processAPIArticle(article collector.Article) collector.Article {
+	processed := article // Make a copy
+
+	// API data is usually well-structured but might have JSON escaping issues
+	if processed.Title != "" {
+		// Unescape JSON strings that might have been double-encoded
+		processed.Title = strings.ReplaceAll(processed.Title, `\"`, `"`)
+		processed.Title = strings.ReplaceAll(processed.Title, `\\`, `\`)
+	}
+
+	// API content might have JSON structure artifacts
+	if processed.Content != "" {
+		processed.Content = strings.ReplaceAll(processed.Content, `\"`, `"`)
+		processed.Content = strings.ReplaceAll(processed.Content, `\\n`, "\n")
+		processed.Content = strings.ReplaceAll(processed.Content, `\\t`, "\t")
+	}
+
+	// API sources often provide metadata that should be preserved
+	if processed.Metadata == nil {
+		processed.Metadata = make(map[string]string)
+	}
+	processed.Metadata["api_processed"] = "true"
+
+	return processed
+}
+
+// processHTMLArticle applies HTML-specific processing logic
+func (c *Converter) processHTMLArticle(article collector.Article) collector.Article {
+	processed := article // Make a copy
+
+	// HTML content requires more aggressive cleaning
+	if processed.Content != "" {
+		// Remove navigation elements, ads, and other non-content HTML
+		processed.Content = c.cleanHTMLContent(processed.Content)
+	}
+
+	// HTML titles often contain site names, try to extract just the article title
+	if processed.Title != "" {
+		processed.Title = c.extractArticleTitleFromHTML(processed.Title)
+	}
+
+	// HTML scraping often has encoding issues
+	processed.Title = html.UnescapeString(processed.Title)
+	processed.Content = html.UnescapeString(processed.Content)
+	if processed.Summary != "" {
+		processed.Summary = html.UnescapeString(processed.Summary)
+	}
+
+	// HTML sources might not have reliable publication dates
+	if processed.PublishedAt.IsZero() {
+		// Use current time as fallback for HTML scraped content
+		processed.PublishedAt = time.Now()
+		if processed.Metadata == nil {
+			processed.Metadata = make(map[string]string)
+		}
+		processed.Metadata["date_fallback"] = "true"
+	}
+
+	return processed
+}
+
+// Helper methods for source-specific processing
+
+// extractFirstParagraph extracts the first meaningful paragraph from content
+func (c *Converter) extractFirstParagraph(content string) string {
+	if content == "" {
+		return ""
+	}
+
+	// Split by paragraph breaks
+	paragraphs := strings.Split(content, "\n\n")
+	
+	for _, para := range paragraphs {
+		para = strings.TrimSpace(para)
+		// Skip empty paragraphs and very short ones
+		if len(para) > 50 {
+			// Clean and return first meaningful paragraph
+			cleaned := c.cleanAndNormalizeContent(para)
+			if len(cleaned) > 30 && len(cleaned) <= 500 {
+				return cleaned
+			}
+		}
+	}
+
+	// If no good paragraph found, try first paragraph regardless of length
+	if len(paragraphs) > 0 && strings.TrimSpace(paragraphs[0]) != "" {
+		firstPara := strings.TrimSpace(paragraphs[0])
+		cleaned := c.cleanAndNormalizeContent(firstPara)
+		if len(cleaned) > 0 {
+			return c.truncateText(cleaned, 200)
+		}
+	}
+
+	// Final fallback to truncated content
+	return c.truncateText(content, 200)
+}
+
+// cleanHTMLContent performs aggressive HTML content cleaning for scraped content
+func (c *Converter) cleanHTMLContent(content string) string {
+	if content == "" {
+		return ""
+	}
+
+	// Remove common non-content elements
+	unwantedPatterns := []string{
+		`<nav[^>]*>.*?</nav>`,           // Navigation
+		`<header[^>]*>.*?</header>`,     // Headers
+		`<footer[^>]*>.*?</footer>`,     // Footers
+		`<aside[^>]*>.*?</aside>`,       // Sidebars
+		`<div[^>]*class="[^"]*ad[^"]*"[^>]*>.*?</div>`,  // Ad containers
+		`<div[^>]*class="[^"]*comment[^"]*"[^>]*>.*?</div>`, // Comments
+		`<script[^>]*>.*?</script>`,     // Scripts
+		`<style[^>]*>.*?</style>`,       // Styles
+		`<!--.*?-->`,                    // Comments
+	}
+
+	for _, pattern := range unwantedPatterns {
+		if re := regexp.MustCompile(`(?is)` + pattern); re != nil {
+			content = re.ReplaceAllString(content, "")
+		}
+	}
+
+	return content
+}
+
+// extractArticleTitleFromHTML tries to extract clean article title from HTML title
+func (c *Converter) extractArticleTitleFromHTML(title string) string {
+	if title == "" {
+		return ""
+	}
+
+	// Common patterns in HTML titles: "Article Title | Site Name" or "Article Title - Site Name"
+	separators := []string{" | ", " - ", " :: ", " — "}
+	
+	// Find the first separator that appears in the title
+	bestIndex := len(title)
+	bestSep := ""
+	
+	for _, sep := range separators {
+		if index := strings.Index(title, sep); index != -1 && index < bestIndex {
+			bestIndex = index
+			bestSep = sep
+		}
+	}
+	
+	// If we found a separator, extract the part before it
+	if bestSep != "" {
+		parts := strings.Split(title, bestSep)
+		if len(parts) > 0 && len(strings.TrimSpace(parts[0])) >= 5 {
+			return strings.TrimSpace(parts[0])
+		}
+	}
+
+	return title
 }

@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -234,6 +235,7 @@ func TestConvertToArticle_URLNormalization(t *testing.T) {
 				URL:        tc.input,
 				Source:     "example.com",
 				SourceType: "rss",
+				Summary:    "This is a test summary for URL normalization testing",
 			}
 			
 			article, err := converter.ConvertToArticle(collectorArticle)
@@ -424,12 +426,14 @@ func TestBatchConvertArticles(t *testing.T) {
 			URL:        "https://example.com/1",
 			Source:     "example.com",
 			SourceType: "rss",
+			Summary:    "This is test summary for article 1",
 		},
 		{
 			Title:      "Article 2",
 			URL:        "https://example.com/2",
 			Source:     "example.com",
 			SourceType: "api",
+			Summary:    "This is test summary for article 2",
 		},
 		{
 			// This one should fail due to missing title
@@ -437,6 +441,7 @@ func TestBatchConvertArticles(t *testing.T) {
 			URL:        "https://example.com/3",
 			Source:     "example.com",
 			SourceType: "html",
+			Summary:    "This is test summary for article 3",
 		},
 	}
 	
@@ -512,6 +517,7 @@ func TestConcurrentConversion(t *testing.T) {
 					URL:        "https://example.com/" + string(rune(goroutineID*articlesPerGoroutine+j)),
 					Source:     "example.com",
 					SourceType: "rss",
+					Summary:    "Test summary for concurrent conversion testing",
 				}
 			}
 			
@@ -802,4 +808,204 @@ func BenchmarkBatchConvertArticles(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = converter.BatchConvertArticles(collectorArticles)
 	}
+}
+
+// Test source-specific processing functionality
+func TestSourceSpecificProcessing(t *testing.T) {
+	converter := NewDefaultConverter()
+	
+	t.Run("RSS_processing", func(t *testing.T) {
+		collectorArticle := collector.Article{
+			Title:      "[RSS] Tech News: New Framework Released",
+			Content:    "First paragraph with important info.\n\nSecond paragraph with more details.\n\nThird paragraph.",
+			URL:        "https://example.com/rss-article",
+			Source:     "example.com",
+			SourceType: "rss",
+			Summary:    "Existing RSS summary",
+			PublishedAt: time.Date(2024, 1, 1, 12, 0, 0, 0, time.FixedZone("EST", -5*3600)),
+		}
+		
+		article, err := converter.ConvertToArticle(collectorArticle)
+		if err != nil {
+			t.Fatalf("RSS processing failed: %v", err)
+		}
+		
+		// Test RSS title cleaning
+		if strings.Contains(article.Title, "[RSS]") {
+			t.Error("RSS prefix should be removed from title")
+		}
+		if article.Title != "Tech News: New Framework Released" {
+			t.Errorf("Expected cleaned title, got %q", article.Title)
+		}
+		
+		// Test timezone normalization
+		if article.PublishedAt.Location() != time.UTC {
+			t.Error("RSS article should be normalized to UTC timezone")
+		}
+	})
+	
+	t.Run("API_processing", func(t *testing.T) {
+		collectorArticle := collector.Article{
+			Title:      "API Article with \\\"escaped quotes\\\"",
+			Content:    "Content with \\n newlines and \\t tabs",
+			URL:        "https://api.example.com/article",
+			Source:     "api.example.com",
+			SourceType: "api",
+			Summary:    "API summary for testing",
+		}
+		
+		article, err := converter.ConvertToArticle(collectorArticle)
+		if err != nil {
+			t.Fatalf("API processing failed: %v", err)
+		}
+		
+		// Test JSON unescaping
+		if strings.Contains(article.Title, `\"`) {
+			t.Error("JSON escaped quotes should be unescaped")
+		}
+		
+		// Check metadata marker
+		if processed, exists := article.GetMetadata("api_processed"); !exists || processed != "true" {
+			t.Error("API processed marker should be set in metadata")
+		}
+	})
+	
+	t.Run("HTML_processing", func(t *testing.T) {
+		collectorArticle := collector.Article{
+			Title:      "Great Article Title | Website Name",
+			Content:    "<nav>Navigation</nav><div>Main content</div><footer>Footer</footer>",
+			URL:        "https://example.com/html-article",
+			Source:     "example.com",
+			SourceType: "html",
+			Summary:    "HTML summary for &amp; testing &lt;entities&gt;",
+		}
+		
+		article, err := converter.ConvertToArticle(collectorArticle)
+		if err != nil {
+			t.Fatalf("HTML processing failed: %v", err)
+		}
+		
+		// Test title extraction
+		if article.Title != "Great Article Title" {
+			t.Errorf("Expected extracted title %q, got %q", "Great Article Title", article.Title)
+		}
+		
+		// Test content cleaning - nav and footer should be removed
+		if strings.Contains(article.Content, "Navigation") || strings.Contains(article.Content, "Footer") {
+			t.Error("Navigation and footer elements should be removed from HTML content")
+		}
+		
+		// Test HTML entity decoding
+		if strings.Contains(article.Summary, "&amp;") || strings.Contains(article.Summary, "&lt;") {
+			t.Error("HTML entities should be decoded in summary")
+		}
+		
+		// Test fallback publication date
+		if article.PublishedAt.IsZero() {
+			t.Error("HTML articles should have fallback publication date")
+		}
+		
+		if fallback, exists := article.GetMetadata("date_fallback"); !exists || fallback != "true" {
+			t.Error("Date fallback marker should be set for HTML articles")
+		}
+	})
+}
+
+func TestSourceSpecificHelperMethods(t *testing.T) {
+	converter := NewDefaultConverter()
+	
+	t.Run("extractFirstParagraph", func(t *testing.T) {
+		testCases := []struct {
+			name     string
+			content  string
+			expected string
+		}{
+			{
+				name:     "multiple_paragraphs",
+				content:  "First paragraph with meaningful content here.\n\nSecond paragraph.",
+				expected: "First paragraph with meaningful content here.",
+			},
+			{
+				name:     "short_paragraphs_skipped",
+				content:  "Too short.\n\nThis is a longer paragraph with enough content to be meaningful.",
+				expected: "This is a longer paragraph with enough content to be meaningful.",
+			},
+			{
+				name:     "empty_content",
+				content:  "",
+				expected: "",
+			},
+		}
+		
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				result := converter.extractFirstParagraph(tc.content)
+				if result != tc.expected {
+					t.Errorf("Expected %q, got %q", tc.expected, result)
+				}
+			})
+		}
+	})
+	
+	t.Run("extractArticleTitleFromHTML", func(t *testing.T) {
+		testCases := []struct {
+			name     string
+			title    string
+			expected string
+		}{
+			{
+				name:     "pipe_separator",
+				title:    "Article Title | Site Name",
+				expected: "Article Title",
+			},
+			{
+				name:     "dash_separator", 
+				title:    "Article Title - Site Name",
+				expected: "Article Title",
+			},
+			{
+				name:     "no_separator",
+				title:    "Simple Title",
+				expected: "Simple Title",
+			},
+			{
+				name:     "multiple_separators",
+				title:    "Main Title | Sub Title - Site",
+				expected: "Main Title",
+			},
+		}
+		
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				result := converter.extractArticleTitleFromHTML(tc.title)
+				if result != tc.expected {
+					t.Errorf("Expected %q, got %q", tc.expected, result)
+				}
+			})
+		}
+	})
+	
+	t.Run("cleanHTMLContent", func(t *testing.T) {
+		content := `
+			<nav class="navigation">Navigation Menu</nav>
+			<div>Main content here</div>
+			<aside>Sidebar content</aside>
+			<footer>Footer content</footer>
+		`
+		
+		result := converter.cleanHTMLContent(content)
+		
+		if strings.Contains(result, "Navigation Menu") {
+			t.Error("Navigation should be removed")
+		}
+		if strings.Contains(result, "Sidebar content") {
+			t.Error("Sidebar should be removed")
+		}
+		if strings.Contains(result, "Footer content") {
+			t.Error("Footer should be removed")
+		}
+		if !strings.Contains(result, "Main content here") {
+			t.Error("Main content should be preserved")
+		}
+	})
 }
