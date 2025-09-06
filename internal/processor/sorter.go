@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
-	"github.com/ZephyrDeng/dev-context/internal/models"
+	"frontend-news-mcp/internal/models"
 )
 
 // SortBy defines the primary sorting criteria

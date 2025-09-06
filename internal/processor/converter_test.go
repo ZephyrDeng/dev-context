@@ -5,8 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"internal/collector"
-	"internal/models"
+	"frontend-news-mcp/internal/collector"
 )
 
 func TestNewConverter(t *testing.T) {

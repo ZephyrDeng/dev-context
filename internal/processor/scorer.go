@@ -6,9 +6,8 @@ import (
 	"sort"
 	"strings"
 	"unicode"
-	"unicode/utf8"
 
-	"github.com/ZephyrDeng/dev-context/internal/models"
+	"frontend-news-mcp/internal/models"
 )
 
 // TermFrequency represents the frequency of a term in a document
@@ -230,7 +229,7 @@ func (rs *RelevanceScorer) calculateTermFrequencies(article *models.Article) []T
 	}
 
 	// Tokenize and count terms
-	terms := rs.tokenizeText(fullText)
+	terms := rs.keywordMatcher.tokenizeText(fullText)
 	termCounts := make(map[string]int)
 	totalTerms := 0
 
@@ -311,7 +310,7 @@ func (rs *RelevanceScorer) articleContainsTerm(article *models.Article, term str
 			}
 			
 			// Also check stemmed versions
-			words := rs.tokenizeText(normalizedText)
+			words := rs.keywordMatcher.tokenizeText(normalizedText)
 			for _, word := range words {
 				if rs.keywordMatcher.stemmer.Stem(word) == term {
 					return true
