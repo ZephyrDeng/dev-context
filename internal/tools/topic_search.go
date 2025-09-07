@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -184,7 +186,7 @@ func (t *TopicSearchService) validateParams(params *TopicSearchParams) error {
 		params.TimeRange = "month"
 	}
 	if params.MinScore == 0 {
-		params.MinScore = 0.3
+		params.MinScore = 0.15  // 调整为0.15，配合新的评分系统
 	}
 	if params.SearchType == "" {
 		params.SearchType = "all"
@@ -241,40 +243,39 @@ func (t *TopicSearchService) searchAcrossPlatforms(ctx context.Context, params T
 	var wg sync.WaitGroup
 	results := &multiPlatformResults{}
 	
-	// 定义搜索通道
-	type searchJob struct {
-		platform string
-		config   collector.CollectConfig
-	}
+	// 获取搜索配置
+	searchConfigs := t.getSearchConfigs(params)
 	
-	jobs := make(chan searchJob, 10)
+	// 并发搜索各个平台，但限制并发数避免资源争抢
+	semaphore := make(chan struct{}, 2) // 最大并发数为2
 	
-	// 启动worker goroutines
-	numWorkers := 3
-	for i := 0; i < numWorkers; i++ {
+	// 为每个平台启动goroutine，使用信号量控制并发
+	for platform, config := range searchConfigs {
 		wg.Add(1)
-		go func() {
+		go func(platformName string, cfg collector.CollectConfig) {
 			defer wg.Done()
-			for job := range jobs {
-				t.searchSinglePlatform(ctx, job.platform, job.config, params, results)
-			}
-		}()
-	}
-	
-	// 发送搜索任务
-	go func() {
-		defer close(jobs)
-		searchConfigs := t.getSearchConfigs(params)
-		for platform, config := range searchConfigs {
+			
+			// 获取信号量
 			select {
-			case jobs <- searchJob{platform: platform, config: config}:
+			case semaphore <- struct{}{}:
+				defer func() { <-semaphore }()
 			case <-ctx.Done():
 				return
 			}
-		}
-	}()
+			
+			// 为每个平台设置独立的超时上下文
+			platformCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+			defer cancel()
+			
+			t.searchSinglePlatform(platformCtx, platformName, cfg, params, results)
+		}(platform, config)
+	}
 	
 	wg.Wait()
+	
+	log.Printf("搜索完成，结果统计 - 文章: %d, 仓库: %d, 讨论: %d", 
+		len(results.Articles), len(results.Repositories), len(results.Discussions))
+	
 	return results, nil
 }
 
@@ -321,44 +322,7 @@ func (t *TopicSearchService) getSearchConfigs(params TopicSearchParams) map[stri
 					"Accept":     "application/vnd.github.v3+json",
 					"User-Agent": "FrontendNews-MCP/1.0",
 				},
-			}
-		}
-		
-		if params.SearchType == "all" || params.SearchType == "discussions" {
-			configs["github_issues"] = collector.CollectConfig{
-				URL:        fmt.Sprintf("https://api.github.com/search/issues?q=%s+is:issue&sort=updated&order=desc&per_page=20",
-					params.Query),
-				Headers: map[string]string{
-					"Accept":     "application/vnd.github.v3+json",
-					"User-Agent": "FrontendNews-MCP/1.0",
-				},
-			}
-		}
-	}
-	
-	// Stack Overflow搜索配置
-	if params.Platform == "" || params.Platform == "stackoverflow" {
-		if params.SearchType == "all" || params.SearchType == "discussions" {
-			configs["stackoverflow"] = collector.CollectConfig{
-				URL:        fmt.Sprintf("https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q=%s&site=stackoverflow&pagesize=20",
-					params.Query),
-				Headers: map[string]string{
-					"User-Agent": "FrontendNews-MCP/1.0",
-				},
-			}
-		}
-	}
-	
-	// Reddit搜索配置
-	if params.Platform == "" || params.Platform == "reddit" {
-		if params.SearchType == "all" || params.SearchType == "discussions" {
-			subreddits := "javascript+reactjs+vuejs+angular+frontend+webdev"
-			configs["reddit"] = collector.CollectConfig{
-				URL:        fmt.Sprintf("https://www.reddit.com/r/%s/search.json?q=%s&restrict_sr=1&sort=relevance&limit=20",
-					subreddits, params.Query),
-				Headers: map[string]string{
-					"User-Agent": "FrontendNews-MCP/1.0",
-				},
+				Timeout: 25 * time.Second, // 增加超时时间
 			}
 		}
 	}
@@ -366,12 +330,24 @@ func (t *TopicSearchService) getSearchConfigs(params TopicSearchParams) map[stri
 	// Dev.to搜索配置
 	if params.Platform == "" || params.Platform == "dev.to" {
 		if params.SearchType == "all" || params.SearchType == "articles" {
+			// Dev.to API不支持query参数，所以使用相关标签
+			tag := params.Query
+			if tag == "react" {
+				tag = "react"
+			} else if tag == "vue" {
+				tag = "vue"
+			} else if tag == "angular" {
+				tag = "angular"
+			} else {
+				tag = "javascript" // 默认使用javascript标签
+			}
+			
 			configs["devto"] = collector.CollectConfig{
-				URL:        fmt.Sprintf("https://dev.to/api/articles?tag=frontend&per_page=30&query=%s",
-					params.Query),
+				URL:        fmt.Sprintf("https://dev.to/api/articles?tag=%s&per_page=30", tag),
 				Headers: map[string]string{
 					"User-Agent": "FrontendNews-MCP/1.0",
 				},
+				Timeout: 25 * time.Second, // 增加超时时间
 			}
 		}
 	}
@@ -381,76 +357,74 @@ func (t *TopicSearchService) getSearchConfigs(params TopicSearchParams) map[stri
 
 // searchSinglePlatform 搜索单个平台
 func (t *TopicSearchService) searchSinglePlatform(ctx context.Context, platform string, config collector.CollectConfig, params TopicSearchParams, results *multiPlatformResults) {
-	log.Printf("搜索平台 %s: %s", platform, params.Query)
-	
-	// 使用collector收集数据
-	collector := t.getCollectorForPlatform(platform)
-	if collector == nil {
-		log.Printf("未找到平台 %s 的采集器", platform)
-		return
-	}
+	// 使用defer处理panic，确保其他平台不受影响
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("平台 %s 搜索发生panic: %v", platform, r)
+		}
+	}()
 	
 	// 根据平台类型处理不同的响应
 	switch {
 	case strings.Contains(platform, "github_repos"):
 		t.handleGitHubRepos(ctx, config, params, results)
-	case strings.Contains(platform, "github_issues"):
-		t.handleGitHubIssues(ctx, config, params, results)
-	case strings.Contains(platform, "stackoverflow"):
-		t.handleStackOverflow(ctx, config, params, results)
-	case strings.Contains(platform, "reddit"):
-		t.handleReddit(ctx, config, params, results)
 	case strings.Contains(platform, "devto"):
 		t.handleDevTo(ctx, config, params, results)
 	default:
-		log.Printf("未知平台类型: %s", platform)
+		log.Printf("平台 %s 暂未实现，跳过", platform)
 	}
 }
 
 // handleGitHubRepos 处理GitHub仓库搜索
 func (t *TopicSearchService) handleGitHubRepos(ctx context.Context, config collector.CollectConfig, params TopicSearchParams, results *multiPlatformResults) {
-	// 这里应该调用collector获取数据，然后解析为Repository对象
-	// 由于collector的具体实现细节，这里提供结构化的处理逻辑
+	// 使用collector进行API调用
+	resultList := (*t.collectorMgr).CollectAll(ctx, []collector.CollectConfig{config})
+	if len(resultList) == 0 {
+		log.Printf("GitHub仓库搜索失败: 没有返回结果")
+		return
+	}
 	
-	// 模拟数据收集过程
-	log.Printf("处理GitHub仓库搜索: %s", params.Query)
+	result := resultList[0]
+	if result.Error != nil {
+		log.Printf("GitHub仓库搜索失败: %v", result.Error)
+		return
+	}
 	
-	// TODO: 实际实现需要调用collector并解析GitHub API响应
-	// repositories := collector.CollectRepositories(ctx, config)
-	// for _, repo := range repositories {
-	//     results.addRepository(repo)
-	// }
+	// 将Articles转换为Repositories（GitHub API返回的是仓库信息）
+	for _, collectorArticle := range result.Articles {
+		repo := convertArticleToRepository(collectorArticle)
+		results.addRepository(repo)
+	}
+	
+	log.Printf("GitHub仓库搜索完成，找到 %d 个仓库", len(result.Articles))
 }
 
-// handleGitHubIssues 处理GitHub Issues搜索
-func (t *TopicSearchService) handleGitHubIssues(ctx context.Context, config collector.CollectConfig, params TopicSearchParams, results *multiPlatformResults) {
-	log.Printf("处理GitHub Issues搜索: %s", params.Query)
-	// TODO: 实现GitHub Issues搜索逻辑
-}
-
-// handleStackOverflow 处理Stack Overflow搜索
-func (t *TopicSearchService) handleStackOverflow(ctx context.Context, config collector.CollectConfig, params TopicSearchParams, results *multiPlatformResults) {
-	log.Printf("处理Stack Overflow搜索: %s", params.Query)
-	// TODO: 实现Stack Overflow搜索逻辑
-}
-
-// handleReddit 处理Reddit搜索
-func (t *TopicSearchService) handleReddit(ctx context.Context, config collector.CollectConfig, params TopicSearchParams, results *multiPlatformResults) {
-	log.Printf("处理Reddit搜索: %s", params.Query)
-	// TODO: 实现Reddit搜索逻辑
-}
 
 // handleDevTo 处理Dev.to搜索
 func (t *TopicSearchService) handleDevTo(ctx context.Context, config collector.CollectConfig, params TopicSearchParams, results *multiPlatformResults) {
-	log.Printf("处理Dev.to搜索: %s", params.Query)
-	// TODO: 实现Dev.to搜索逻辑
+	// 使用collector进行API调用
+	resultList := (*t.collectorMgr).CollectAll(ctx, []collector.CollectConfig{config})
+	
+	if len(resultList) == 0 {
+		log.Printf("Dev.to搜索失败: 没有返回结果")
+		return
+	}
+	
+	result := resultList[0]
+	if result.Error != nil {
+		log.Printf("Dev.to搜索失败: %v", result.Error)
+		return
+	}
+	
+	// 将collector.Article转换为models.Article并添加到结果中
+	for _, collectorArticle := range result.Articles {
+		modelArticle := convertCollectorToModelArticle(collectorArticle)
+		results.addArticle(modelArticle)
+	}
+	
+	log.Printf("Dev.to搜索完成，找到 %d 篇文章", len(result.Articles))
 }
 
-// getCollectorForPlatform 获取平台对应的collector
-func (t *TopicSearchService) getCollectorForPlatform(platform string) *collector.CollectorManager {
-	// TODO: 根据平台返回相应的collector实例
-	return nil
-}
 
 // processSearchResults 处理搜索结果
 func (t *TopicSearchService) processSearchResults(searchResults *multiPlatformResults, params TopicSearchParams) (*TopicSearchResult, error) {
@@ -488,46 +462,268 @@ func (t *TopicSearchService) calculateRelevanceScores(result *TopicSearchResult,
 	
 	// 计算文章相关性
 	for i := range result.Articles {
-		result.Articles[i].Relevance = t.calculateTextRelevance(
-			result.Articles[i].Title+" "+result.Articles[i].Summary,
+		article := &result.Articles[i]
+		
+		// 基础文本相关性
+		textScore := t.calculateTextRelevance(
+			article.Title+" "+article.Summary,
 			keywords,
 		)
+		
+		// 标签相关性加成
+		tagScore := t.calculateTagRelevance(article.Tags, keywords)
+		
+		// 技术相关性加成（针对前端技术）
+		techScore := t.calculateTechRelevance(article, params.Query)
+		
+		// 综合评分
+		finalScore := (textScore * 0.5) + (tagScore * 0.3) + (techScore * 0.2)
+		
+		// 确保分数在合理范围
+		if finalScore > 1.0 {
+			finalScore = 1.0
+		} else if finalScore < 0.1 {
+			finalScore = 0.1
+		}
+		
+		article.Relevance = finalScore
 	}
 	
 	// 计算仓库相关性
 	for i := range result.Repositories {
-		result.Repositories[i].TrendScore = t.calculateTextRelevance(
-			result.Repositories[i].Name+" "+result.Repositories[i].Description,
+		repo := &result.Repositories[i]
+		
+		textScore := t.calculateTextRelevance(
+			repo.Name+" "+repo.Description,
 			keywords,
 		)
+		
+		// 仓库语言匹配加成
+		langScore := t.calculateLanguageRelevance(repo.Language, params.Query)
+		
+		// 星标数影响（受欢迎程度）
+		starScore := t.calculatePopularityScore(repo.Stars)
+		
+		// 综合评分
+		finalScore := (textScore * 0.6) + (langScore * 0.3) + (starScore * 0.1)
+		
+		if finalScore > 1.0 {
+			finalScore = 1.0
+		} else if finalScore < 0.1 {
+			finalScore = 0.1
+		}
+		
+		repo.TrendScore = finalScore
 	}
 	
 	// 计算讨论相关性
 	for i := range result.Discussions {
-		result.Discussions[i].Relevance = t.calculateTextRelevance(
-			result.Discussions[i].Title+" "+result.Discussions[i].Content,
+		discussion := &result.Discussions[i]
+		
+		discussion.Relevance = t.calculateTextRelevance(
+			discussion.Title+" "+discussion.Content,
 			keywords,
 		)
 	}
 }
 
-// calculateTextRelevance 计算文本相关性
-func (t *TopicSearchService) calculateTextRelevance(text string, keywords []string) float64 {
-	text = strings.ToLower(text)
-	score := 0.0
-	totalKeywords := len(keywords)
-	
-	if totalKeywords == 0 {
+// calculateTagRelevance 计算标签相关性
+func (t *TopicSearchService) calculateTagRelevance(tags []string, keywords []string) float64 {
+	if len(tags) == 0 || len(keywords) == 0 {
 		return 0.0
 	}
 	
-	for _, keyword := range keywords {
-		if strings.Contains(text, keyword) {
-			score += 1.0
+	score := 0.0
+	for _, tag := range tags {
+		tagLower := strings.ToLower(tag)
+		for _, keyword := range keywords {
+			keywordLower := strings.ToLower(keyword)
+			
+			// 完全匹配
+			if tagLower == keywordLower {
+				score += 1.0
+			} else if strings.Contains(tagLower, keywordLower) {
+				score += 0.7
+			} else if strings.Contains(keywordLower, tagLower) {
+				score += 0.5
+			}
 		}
 	}
 	
-	return score / float64(totalKeywords)
+	// 标准化分数
+	normalizedScore := score / float64(len(keywords))
+	if normalizedScore > 1.0 {
+		normalizedScore = 1.0
+	}
+	
+	return normalizedScore
+}
+
+// calculateTechRelevance 计算技术相关性
+func (t *TopicSearchService) calculateTechRelevance(article *models.Article, query string) float64 {
+	queryLower := strings.ToLower(query)
+	
+	// 前端技术关键词权重映射
+	techKeywords := map[string]float64{
+		"react":      1.0,
+		"vue":        1.0,
+		"angular":    1.0,
+		"javascript": 0.9,
+		"typescript": 0.9,
+		"nodejs":     0.8,
+		"css":        0.7,
+		"html":       0.7,
+		"webpack":    0.8,
+		"vite":       0.8,
+		"nextjs":     0.9,
+		"nuxt":       0.9,
+		"svelte":     0.8,
+		"frontend":   0.7,
+	}
+	
+	maxScore := 0.0
+	
+	// 检查文章标题和内容中的技术关键词
+	content := strings.ToLower(article.Title + " " + article.Summary)
+	for tech, weight := range techKeywords {
+		if strings.Contains(queryLower, tech) && strings.Contains(content, tech) {
+			if weight > maxScore {
+				maxScore = weight
+			}
+		}
+	}
+	
+	return maxScore
+}
+
+// calculateLanguageRelevance 计算编程语言相关性
+func (t *TopicSearchService) calculateLanguageRelevance(language, query string) float64 {
+	if language == "" {
+		return 0.0
+	}
+	
+	languageLower := strings.ToLower(language)
+	queryLower := strings.ToLower(query)
+	
+	// 直接语言匹配
+	if strings.Contains(queryLower, languageLower) {
+		return 1.0
+	}
+	
+	// 语言别名映射
+	aliases := map[string][]string{
+		"javascript": {"js", "node", "nodejs"},
+		"typescript": {"ts"},
+		"python":     {"py"},
+		"go":         {"golang"},
+	}
+	
+	for lang, aliasList := range aliases {
+		if languageLower == lang {
+			for _, alias := range aliasList {
+				if strings.Contains(queryLower, alias) {
+					return 0.9
+				}
+			}
+		}
+	}
+	
+	return 0.0
+}
+
+// calculatePopularityScore 根据星标数计算受欢迎程度分数
+func (t *TopicSearchService) calculatePopularityScore(stars int) float64 {
+	// 使用对数函数避免高星标项目过度影响
+	if stars <= 0 {
+		return 0.0
+	}
+	
+	// 使用对数缩放，1000星为基准点0.5分
+	score := math.Log10(float64(stars)) / math.Log10(1000.0) * 0.5
+	
+	if score > 1.0 {
+		score = 1.0
+	} else if score < 0.0 {
+		score = 0.0
+	}
+	
+	return score
+}
+
+// calculateTextRelevance 计算文本相关性
+func (t *TopicSearchService) calculateTextRelevance(text string, keywords []string) float64 {
+	text = strings.ToLower(text)
+	
+	if len(keywords) == 0 {
+		return 0.5 // 没有关键词时给予中等分数
+	}
+	
+	score := 0.0
+	matchCount := 0
+	
+	for _, keyword := range keywords {
+		keyword = strings.ToLower(keyword)
+		
+		// 完全匹配权重更高
+		if strings.Contains(text, keyword) {
+			// 根据匹配位置给不同权重
+			if strings.HasPrefix(text, keyword) {
+				score += 1.0 // 标题开头匹配
+			} else if strings.Contains(text[:min(len(text), 100)], keyword) {
+				score += 0.8 // 前100字符内匹配
+			} else {
+				score += 0.6 // 其他位置匹配
+			}
+			matchCount++
+		}
+		
+		// 部分匹配检查（如果关键词长度>3）
+		if len(keyword) > 3 {
+			// 检查是否包含关键词的子字符串
+			if containsPartialMatch(text, keyword) {
+				score += 0.3
+			}
+		}
+	}
+	
+	// 计算最终相关性分数
+	baseScore := score / float64(len(keywords))
+	
+	// 匹配比例奖励
+	matchRatio := float64(matchCount) / float64(len(keywords))
+	bonusScore := matchRatio * 0.2
+	
+	finalScore := baseScore + bonusScore
+	
+	// 确保分数在合理范围内
+	if finalScore > 1.0 {
+		finalScore = 1.0
+	} else if finalScore < 0.1 {
+		finalScore = 0.1
+	}
+	
+	return finalScore
+}
+
+// containsPartialMatch 检查部分匹配
+func containsPartialMatch(text, keyword string) bool {
+	// 检查关键词的前后缀是否在文本中
+	if len(keyword) <= 4 {
+		return false
+	}
+	
+	prefix := keyword[:len(keyword)/2]
+	suffix := keyword[len(keyword)/2:]
+	
+	return strings.Contains(text, prefix) || strings.Contains(text, suffix)
+}
+
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // filterByScore 按分数过滤结果
@@ -739,4 +935,96 @@ func getLanguageParam(language string) string {
 		return "javascript" // 默认JavaScript
 	}
 	return language
+}
+
+// convertCollectorToModelArticle 转换collector.Article到models.Article
+func convertCollectorToModelArticle(collectorArticle collector.Article) models.Article {
+	modelArticle := models.Article{
+		ID:          collectorArticle.ID,
+		Title:       collectorArticle.Title,
+		URL:         collectorArticle.URL,
+		Source:      collectorArticle.Source,
+		SourceType:  collectorArticle.SourceType,
+		PublishedAt: collectorArticle.PublishedAt,
+		Summary:     collectorArticle.Summary,
+		Content:     collectorArticle.Content,
+		Tags:        collectorArticle.Tags,
+		Quality:     0.5,
+		Relevance:   0.5,
+		Metadata:    convertStringMapToInterface(collectorArticle.Metadata),
+	}
+	
+	// 将Author和Language信息存储到Metadata中
+	if collectorArticle.Author != "" {
+		modelArticle.SetMetadata("author", collectorArticle.Author)
+	}
+	if collectorArticle.Language != "" {
+		modelArticle.SetMetadata("language", collectorArticle.Language)
+	}
+	
+	// 更新质量分数
+	modelArticle.UpdateQuality()
+	
+	return modelArticle
+}
+
+// convertArticleToRepository 转换Article到Repository（用于GitHub仓库数据）
+func convertArticleToRepository(article collector.Article) models.Repository {
+	repo := models.Repository{
+		ID:          article.ID,
+		Name:        article.Title,
+		FullName:    article.Title,
+		Description: article.Summary,
+		URL:         article.URL,
+		Language:    article.Language,
+		Stars:       0,
+		Forks:       0,
+		TrendScore:  0.5,
+		UpdatedAt:   article.PublishedAt,
+	}
+	
+	// 从metadata中获取GitHub特定信息
+	if starsStr, exists := article.Metadata["stars"]; exists {
+		if stars, err := parseIntFromString(starsStr); err == nil {
+			repo.Stars = stars
+		}
+	}
+	if forksStr, exists := article.Metadata["forks"]; exists {
+		if forks, err := parseIntFromString(forksStr); err == nil {
+			repo.Forks = forks
+		}
+	}
+	
+	// 重新计算trend score
+	repo.CalculateTrendScore()
+	
+	return repo
+}
+
+// convertStringMapToInterface 转换map[string]string到map[string]interface{}
+func convertStringMapToInterface(stringMap map[string]string) map[string]interface{} {
+	interfaceMap := make(map[string]interface{})
+	for k, v := range stringMap {
+		interfaceMap[k] = v
+	}
+	return interfaceMap
+}
+
+// parseIntFromString 从字符串解析整数
+func parseIntFromString(s string) (int, error) {
+	if s == "" {
+		return 0, fmt.Errorf("empty string")
+	}
+	// 使用strconv.Atoi进行实际的字符串到整数转换
+	return strconv.Atoi(s)
+}
+
+// contains 检查slice是否包含指定元素
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }

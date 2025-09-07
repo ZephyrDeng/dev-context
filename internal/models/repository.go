@@ -39,6 +39,9 @@ type Repository struct {
 	
 	// UpdatedAt is the timestamp of the last repository update
 	UpdatedAt time.Time `json:"updatedAt" validate:"required"`
+	
+	// Metadata stores additional key-value data for extensibility
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // NewRepository creates a new Repository instance with required fields and generates ID
@@ -53,6 +56,7 @@ func NewRepository(name, fullName, url string) *Repository {
 		Forks:      0,
 		TrendScore: 0.0,
 		UpdatedAt:  time.Now(),
+		Metadata:   make(map[string]interface{}),
 	}
 	repo.ID = repo.GenerateID()
 	return repo

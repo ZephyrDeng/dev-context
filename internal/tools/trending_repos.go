@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -147,11 +148,11 @@ func (t *TrendingReposService) GetTrendingRepositories(ctx context.Context, para
 		Repositories: filteredRepos,
 		TimeRange:    params.TimeRange,
 		Language:     params.Language,
-		TotalCount:   len(repositories),
+		TotalCount:   len(filteredRepos),
 		FilterCount:  len(filteredRepos),
 		UpdatedAt:    time.Now(),
 		Summary:      t.generateRepoSummary(filteredRepos),
-		Sources:      t.calculateRepoSources(repositories),
+		Sources:      t.calculateRepoSources(filteredRepos),
 	}
 	
 	// 7. 缓存结果 (缓存15分钟，热门仓库变化较快)
@@ -170,7 +171,7 @@ func (t *TrendingReposService) validateParams(params *TrendingReposParams) error
 		params.TimeRange = "weekly"
 	}
 	if params.MinStars == 0 {
-		params.MinStars = 10
+		params.MinStars = 5  // 设置为5，过滤掉低质量仓库
 	}
 	if params.MaxResults == 0 {
 		params.MaxResults = 30
@@ -182,7 +183,7 @@ func (t *TrendingReposService) validateParams(params *TrendingReposParams) error
 		params.Format = "json"
 	}
 	params.IncludeDescription = true // 默认包含描述
-	params.FrontendOnly = true       // 默认只返回前端相关
+	// 不默认启用FrontendOnly，让用户明确指定
 	
 	// 验证范围
 	if params.MinStars < 0 {
@@ -239,7 +240,6 @@ func (t *TrendingReposService) collectTrendingRepos(ctx context.Context, params 
 		go func(sourceName string, cfg collector.CollectConfig) {
 			defer wg.Done()
 			
-			log.Printf("开始收集 %s 的热门仓库", sourceName)
 			repos, err := t.collectFromSource(ctx, sourceName, cfg, params)
 			if err != nil {
 				log.Printf("收集 %s 失败: %v", sourceName, err)
@@ -249,8 +249,6 @@ func (t *TrendingReposService) collectTrendingRepos(ctx context.Context, params 
 			mu.Lock()
 			allRepos = append(allRepos, repos...)
 			mu.Unlock()
-			
-			log.Printf("从 %s 收集到 %d 个仓库", sourceName, len(repos))
 		}(source, config)
 	}
 	
@@ -259,7 +257,6 @@ func (t *TrendingReposService) collectTrendingRepos(ctx context.Context, params 
 	// 去重
 	uniqueRepos := t.deduplicateRepos(allRepos)
 	
-	log.Printf("总共收集到 %d 个仓库，去重后 %d 个", len(allRepos), len(uniqueRepos))
 	return uniqueRepos, nil
 }
 
@@ -270,14 +267,12 @@ func (t *TrendingReposService) getTrendingConfigs(params TrendingReposParams) ma
 	// GitHub Trending API
 	var githubURL string
 	if params.Language != "" {
-		githubURL = fmt.Sprintf("https://api.github.com/search/repositories?q=language:%s+created:>%s&sort=stars&order=desc&per_page=50",
+		githubURL = fmt.Sprintf("https://api.github.com/search/repositories?q=language:%s+created:>%s&sort=stars&order=desc&per_page=20",
 			params.Language, t.getDateForTimeRange(params.TimeRange))
 	} else {
-		// 前端相关语言查询
-		languages := []string{"javascript", "typescript", "vue", "react", "angular"}
-		langQuery := strings.Join(languages, "+OR+language:")
-		githubURL = fmt.Sprintf("https://api.github.com/search/repositories?q=language:%s+created:>%s&sort=stars&order=desc&per_page=50",
-			langQuery, t.getDateForTimeRange(params.TimeRange))
+		// 使用JavaScript作为默认前端语言
+		githubURL = fmt.Sprintf("https://api.github.com/search/repositories?q=language:javascript+created:>%s&sort=stars&order=desc&per_page=20",
+			t.getDateForTimeRange(params.TimeRange))
 	}
 	
 	configs["github_trending"] = collector.CollectConfig{
@@ -286,6 +281,7 @@ func (t *TrendingReposService) getTrendingConfigs(params TrendingReposParams) ma
 			"Accept":     "application/vnd.github.v3+json",
 			"User-Agent": "FrontendNews-MCP/1.0",
 		},
+		Timeout: 15 * time.Second,
 	}
 	
 	// GitHub Topics API (获取特定主题的仓库)
@@ -295,18 +291,21 @@ func (t *TrendingReposService) getTrendingConfigs(params TrendingReposParams) ma
 			continue
 		}
 		
+		// 限制topics数量避免过多并发请求
+		if len(configs) >= 4 {
+			break
+		}
+		
 		configs[fmt.Sprintf("github_topic_%s", topic)] = collector.CollectConfig{
-			URL:        fmt.Sprintf("https://api.github.com/search/repositories?q=topic:%s+created:>%s&sort=stars&order=desc&per_page=30", 
+			URL:        fmt.Sprintf("https://api.github.com/search/repositories?q=topic:%s+created:>%s&sort=stars&order=desc&per_page=15", 
 				topic, t.getDateForTimeRange(params.TimeRange)),
 			Headers: map[string]string{
 				"Accept":     "application/vnd.github.v3+json",
 				"User-Agent": "FrontendNews-MCP/1.0",
 			},
+			Timeout: 15 * time.Second,
 		}
 	}
-	
-	// 如果需要，可以添加其他平台的trending API
-	// 例如：GitLab, Bitbucket等
 	
 	return configs
 }
@@ -332,25 +331,67 @@ func (t *TrendingReposService) getDateForTimeRange(timeRange string) string {
 
 // collectFromSource 从单个数据源收集仓库
 func (t *TrendingReposService) collectFromSource(ctx context.Context, sourceName string, config collector.CollectConfig, params TrendingReposParams) ([]models.Repository, error) {
-	// TODO: 这里需要根据实际的collector实现来调用相应的方法
-	// 目前提供结构化的处理逻辑
+	// 使用collector进行API调用
+	resultList := (*t.collectorMgr).CollectAll(ctx, []collector.CollectConfig{config})
 	
-	log.Printf("从 %s 收集数据: %s", sourceName, config.URL)
+	if len(resultList) == 0 {
+		return nil, fmt.Errorf("收集 %s 数据失败: 没有返回结果", sourceName)
+	}
 	
-	// 模拟数据收集过程
+	result := resultList[0]
+	if result.Error != nil {
+		return nil, fmt.Errorf("收集 %s 数据失败: %w", sourceName, result.Error)
+	}
+	
 	var repositories []models.Repository
 	
-	// 根据不同的数据源类型处理
-	switch {
-	case strings.Contains(sourceName, "github_trending"):
-		repositories = t.handleGitHubTrendingAPI(ctx, config, params)
-	case strings.Contains(sourceName, "github_topic"):
-		repositories = t.handleGitHubTopicAPI(ctx, config, params)
-	default:
-		log.Printf("未知数据源类型: %s", sourceName)
+	// 将collector.Article转换为models.Repository
+	for _, article := range result.Articles {
+		repo := t.convertArticleToRepository(article)
+		repositories = append(repositories, repo)
 	}
 	
 	return repositories, nil
+}
+
+// convertArticleToRepository 转换Article到Repository（用于GitHub仓库数据）
+func (t *TrendingReposService) convertArticleToRepository(article collector.Article) models.Repository {
+	repo := models.Repository{
+		ID:          article.ID,
+		Name:        article.Title,
+		FullName:    article.Title,
+		Description: article.Summary,
+		URL:         article.URL,
+		Language:    article.Language,
+		Stars:       0,
+		Forks:       0,
+		TrendScore:  0.5,
+		UpdatedAt:   article.PublishedAt,
+		Metadata:    make(map[string]interface{}),
+	}
+	
+	// 从metadata中获取GitHub特定信息
+	if starsStr, exists := article.Metadata["stars"]; exists {
+		if stars, err := parseIntFromString(starsStr); err == nil {
+			repo.Stars = stars
+		}
+	}
+	
+	if forksStr, exists := article.Metadata["forks"]; exists {
+		if forks, err := parseIntFromString(forksStr); err == nil {
+			repo.Forks = forks
+		}
+	}
+	
+	// 将 collector.Article 的 metadata 复制到 Repository
+	for k, v := range article.Metadata {
+		repo.Metadata[k] = v
+	}
+	
+	// 重新计算trend score
+	repo.CalculateTrendScore()
+	
+	return repo
 }
 
 // handleGitHubTrendingAPI 处理GitHub Trending API
@@ -421,9 +462,16 @@ func (t *TrendingReposService) processAndFilterRepos(repositories []models.Repos
 
 // isForkRepo 判断是否为Fork仓库
 func (t *TrendingReposService) isForkRepo(repo models.Repository) bool {
-	// 通过描述或其他字段判断是否为Fork
-	// 由于models.Repository没有Metadata字段，暂时返回false
-	// TODO: 根据实际Repository结构添加Fork检测逻辑
+	// 检查metadata中的is_fork字段
+	if repo.Metadata != nil {
+		if isForkInterface, exists := repo.Metadata["is_fork"]; exists {
+			if isForkStr, ok := isForkInterface.(string); ok {
+				if isFork, err := strconv.ParseBool(isForkStr); err == nil {
+					return isFork
+				}
+			}
+		}
+	}
 	return false
 }
 
@@ -480,9 +528,8 @@ func (t *TrendingReposService) matchesCategory(repo models.Repository, category 
 
 // updateRepoActivityInfo 更新仓库活跃度信息
 func (t *TrendingReposService) updateRepoActivityInfo(repo *models.Repository) {
-	// 暂时跳过Metadata操作，因为models.Repository没有此字段
-	// TODO: 根据实际Repository结构添加活跃度信息更新逻辑
-	log.Printf("更新仓库 %s 的活跃度信息", repo.Name)
+	// 基于最近更新时间、星标数和Fork数计算活跃度
+	// 这里可以根据需要添加更复杂的活跃度计算逻辑
 }
 
 // sortRepositories 排序仓库

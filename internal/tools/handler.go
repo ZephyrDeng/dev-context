@@ -161,6 +161,15 @@ func (h *Handler) registerTopicSearchTools(server *mcp.Server) error {
 		Name:        "topic_search",
 		Description: "Search and analyze specific frontend technologies and topics",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args TopicSearchArgs) (*mcp.CallToolResult, any, error) {
+		// 检查必需参数
+		if args.Query == "" {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: "Error: query parameter is required"},
+				},
+			}, nil, nil
+		}
+		
 		// 转换参数
 		params := TopicSearchParams{
 			Query:       args.Query,
@@ -214,7 +223,7 @@ func (h *Handler) registerTopicSearchTools(server *mcp.Server) error {
 			},
 		}, nil, nil
 	})
-
+	
 	log.Printf("主题搜索工具注册成功")
 	return nil
 }
@@ -225,7 +234,7 @@ func (h *Handler) registerTrendingReposTools(server *mcp.Server) error {
 	type TrendingReposArgs struct {
 		Language           string `json:"language,omitempty" jsonschema:"Programming language filter (javascript, typescript, python, etc.)"`
 		TimeRange          string `json:"timeRange,omitempty" jsonschema:"Time range (daily, weekly, monthly)"`
-		MinStars           int    `json:"minStars,omitempty" jsonschema:"Minimum star count (default 10)"`
+		MinStars           int    `json:"minStars,omitempty" jsonschema:"Minimum star count (default 0)"`
 		MaxResults         int    `json:"maxResults,omitempty" jsonschema:"Maximum results (default 30, max 100)"`
 		Category           string `json:"category,omitempty" jsonschema:"Repository category (framework, library, tool, example)"`
 		IncludeForks       bool   `json:"includeForks,omitempty" jsonschema:"Include fork repositories"`
@@ -396,54 +405,6 @@ func (h *Handler) handleSearchFrontendTopic(
 	}, result, nil
 }
 
-// handleGetTrendingRepositories 处理热门仓库工具调用
-func (h *Handler) handleGetTrendingRepositories(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	args TrendingReposParams,
-) (*mcp.CallToolResult, any, error) {
-	log.Printf("处理 get_trending_repositories 请求: language=%s, timeRange=%s", 
-		args.Language, args.TimeRange)
-	
-	// 参数验证
-	if err := h.validator.ValidateTrendingReposParams(args); err != nil {
-		return nil, nil, fmt.Errorf("参数验证失败: %w", err)
-	}
-	
-	// 调用服务
-	result, err := h.trendingReposService.GetTrendingRepositories(ctx, args)
-	if err != nil {
-		return nil, nil, fmt.Errorf("获取热门仓库失败: %w", err)
-	}
-	
-	// 格式化输出
-	format := args.Format
-	if format == "" {
-		format = "json"
-	}
-	
-	var content string
-	if format == "json" {
-		// JSON格式直接返回结构化数据
-		jsonData, err := json.MarshalIndent(result, "", "  ")
-		if err != nil {
-			return nil, nil, fmt.Errorf("JSON序列化失败: %w", err)
-		}
-		content = string(jsonData)
-	} else {
-		// 其他格式使用formatter
-		content, err = h.trendingReposService.FormatResult(result, format)
-		if err != nil {
-			return nil, nil, fmt.Errorf("格式化结果失败: %w", err)
-		}
-	}
-	
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: content},
-		},
-	}, result, nil
-}
 
 // GetToolsInfo 获取工具信息列表
 func (h *Handler) GetToolsInfo() []ToolInfo {

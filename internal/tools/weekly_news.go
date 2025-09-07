@@ -248,12 +248,33 @@ func (w *WeeklyNewsService) collectArticles(ctx context.Context, period *Period,
 	// 定义前端开发相关的数据源配置
 	configs := w.getFrontendCollectConfigs(period, params.Sources)
 	
-	// 并发收集
-	// TODO: 实现CollectConcurrently方法或使用其他收集方式
 	log.Printf("开始收集前端新闻数据，配置数量: %d", len(configs))
 	
-	// 暂时返回空的文章列表，后续实现具体的数据收集逻辑
+	// 使用collector管理器并发收集数据
+	results := (*w.collectorMgr).CollectAll(ctx, configs)
+	
+	// 聚合所有文章
 	var articles []models.Article
+	var errors []error
+	
+	for _, result := range results {
+		if result.Error != nil {
+			errors = append(errors, result.Error)
+			log.Printf("数据源 %s 收集失败: %v", result.Source, result.Error)
+		} else {
+			// 转换collector.Article到models.Article
+			for _, collectorArticle := range result.Articles {
+				modelArticle := w.convertToModelArticle(collectorArticle)
+				articles = append(articles, modelArticle)
+			}
+			log.Printf("从 %s 收集到 %d 篇文章", result.Source, len(result.Articles))
+		}
+	}
+	
+	// 如果所有数据源都失败了，返回错误
+	if len(articles) == 0 && len(errors) > 0 {
+		return nil, fmt.Errorf("所有数据源收集失败: %v", errors)
+	}
 	
 	// 去重
 	uniqueArticles := w.deduplicateArticles(articles)
@@ -269,25 +290,56 @@ func (w *WeeklyNewsService) getFrontendCollectConfigs(period *Period, sources st
 	// 基础前端新闻源
 	frontendSources := map[string]collector.CollectConfig{
 		"dev.to": {
-			URL:        "https://dev.to/api/articles?tag=frontend&per_page=50",
+			URL:         "https://dev.to/api/articles?tag=frontend&per_page=30",
 			Headers: map[string]string{
 				"User-Agent": "FrontendNews-MCP/1.0",
+				"Accept":     "application/json",
+			},
+			MaxArticles: 30,
+			Tags:        []string{"frontend", "dev.to"},
+			Metadata: map[string]string{
+				"source_type": "api",
+				"platform":    "dev.to",
 			},
 		},
-		"hackernews": {
-			URL:        "https://hacker-news.firebaseio.com/v0/topstories.json",
+		"dev.to-react": {
+			URL:         "https://dev.to/api/articles?tag=react&per_page=20",
 			Headers: map[string]string{
 				"User-Agent": "FrontendNews-MCP/1.0",
+				"Accept":     "application/json",
+			},
+			MaxArticles: 20,
+			Tags:        []string{"react", "dev.to"},
+			Metadata: map[string]string{
+				"source_type": "api",
+				"platform":    "dev.to",
 			},
 		},
-		"reddit": {
-			URL:        "https://www.reddit.com/r/javascript+reactjs+vuejs+angular+frontend/.json?limit=50",
+		"dev.to-vue": {
+			URL:         "https://dev.to/api/articles?tag=vue&per_page=20",
 			Headers: map[string]string{
 				"User-Agent": "FrontendNews-MCP/1.0",
+				"Accept":     "application/json",
+			},
+			MaxArticles: 20,
+			Tags:        []string{"vue", "dev.to"},
+			Metadata: map[string]string{
+				"source_type": "api",
+				"platform":    "dev.to",
 			},
 		},
-		"medium": {
-			URL:        "https://medium.com/feed/tag/frontend",
+		"dev.to-javascript": {
+			URL:         "https://dev.to/api/articles?tag=javascript&per_page=25",
+			Headers: map[string]string{
+				"User-Agent": "FrontendNews-MCP/1.0",
+				"Accept":     "application/json",
+			},
+			MaxArticles: 25,
+			Tags:        []string{"javascript", "dev.to"},
+			Metadata: map[string]string{
+				"source_type": "api",
+				"platform":    "dev.to",
+			},
 		},
 	}
 	
@@ -306,6 +358,7 @@ func (w *WeeklyNewsService) getFrontendCollectConfigs(period *Period, sources st
 		}
 	}
 	
+	log.Printf("配置了 %d 个数据源进行采集", len(configs))
 	return configs
 }
 
@@ -428,6 +481,39 @@ func (w *WeeklyNewsService) deduplicateArticles(articles []models.Article) []mod
 	return unique
 }
 
+// convertToModelArticle 将collector.Article转换为models.Article
+func (w *WeeklyNewsService) convertToModelArticle(collectorArticle collector.Article) models.Article {
+	modelArticle := models.Article{
+		ID:          collectorArticle.ID,
+		Title:       collectorArticle.Title,
+		URL:         collectorArticle.URL,
+		Source:      collectorArticle.Source,
+		SourceType:  collectorArticle.SourceType,
+		PublishedAt: collectorArticle.PublishedAt,
+		Summary:     collectorArticle.Summary,
+		Content:     collectorArticle.Content,
+		Tags:        collectorArticle.Tags,
+		// 默认质量分数和相关性分数
+		Quality:     0.5,
+		Relevance:   0.5,
+		// 将map[string]string转换为map[string]interface{}
+		Metadata:    convertStringMapToInterface(collectorArticle.Metadata),
+	}
+	
+	// 将Author和Language信息存储到Metadata中
+	if collectorArticle.Author != "" {
+		modelArticle.SetMetadata("author", collectorArticle.Author)
+	}
+	if collectorArticle.Language != "" {
+		modelArticle.SetMetadata("language", collectorArticle.Language)
+	}
+	
+	// 更新质量分数
+	modelArticle.UpdateQuality()
+	
+	return modelArticle
+}
+
 // calculateSourceInfo 计算数据源信息
 func (w *WeeklyNewsService) calculateSourceInfo(articles []models.Article) []SourceInfo {
 	sourceCount := make(map[string]int)
@@ -508,15 +594,6 @@ func (w *WeeklyNewsService) FormatResult(result *WeeklyNewsResult, format string
 }
 
 // 辅助函数
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
 func splitAndTrim(s, sep string) []string {
 	parts := strings.Split(s, sep)
 	var result []string

@@ -14,16 +14,21 @@ import (
 
 // GitHub API 响应结构
 type GitHubRepo struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	FullName    string `json:"full_name"`
-	Description string `json:"description"`
-	HTMLURL     string `json:"html_url"`
-	Language    string `json:"language"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-	PushedAt    string `json:"pushed_at"`
-	Owner       struct {
+	ID             int    `json:"id"`
+	Name           string `json:"name"`
+	FullName       string `json:"full_name"`
+	Description    string `json:"description"`
+	HTMLURL        string `json:"html_url"`
+	Language       string `json:"language"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
+	PushedAt       string `json:"pushed_at"`
+	StargazersCount int   `json:"stargazers_count"`
+	ForksCount     int    `json:"forks_count"`
+	WatchersCount  int    `json:"watchers_count"`
+	OpenIssuesCount int   `json:"open_issues_count"`
+	Fork           bool   `json:"fork"`
+	Owner          struct {
 		Login string `json:"login"`
 	} `json:"owner"`
 	Topics []string `json:"topics"`
@@ -313,6 +318,11 @@ func (a *APICollector) convertGitHubRepos(repos []GitHubRepo, config CollectConf
 		article.Metadata["repo_language"] = repo.Language
 		article.Metadata["created_at"] = repo.CreatedAt
 		article.Metadata["updated_at"] = repo.UpdatedAt
+		article.Metadata["stars"] = strconv.Itoa(repo.StargazersCount)
+		article.Metadata["forks"] = strconv.Itoa(repo.ForksCount)
+		article.Metadata["watchers"] = strconv.Itoa(repo.WatchersCount)
+		article.Metadata["open_issues"] = strconv.Itoa(repo.OpenIssuesCount)
+		article.Metadata["is_fork"] = strconv.FormatBool(repo.Fork)
 
 		if config.Metadata != nil {
 			for k, v := range config.Metadata {
