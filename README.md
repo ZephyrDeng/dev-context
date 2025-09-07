@@ -1,490 +1,330 @@
-# Claude Code PM
+# Frontend News MCP - Real-time Query System
 
-[![Automaze](https://img.shields.io/badge/By-automaze.io-4b3baf)](https://automaze.io)
-&nbsp;
-[![Claude Code](https://img.shields.io/badge/+-Claude%20Code-d97757)](https://github.com/automazeio/ccpm/blob/main/README.md)
-[![GitHub Issues](https://img.shields.io/badge/+-GitHub%20Issues-1f2328)](https://github.com/automazeio/ccpm)
-&nbsp;
-[![MIT License](https://img.shields.io/badge/License-MIT-28a745)](https://github.com/automazeio/ccpm/blob/main/LICENSE)
-&nbsp;
-[![Follow on 𝕏](https://img.shields.io/badge/𝕏-@aroussi-1c9bf0)](http://x.com/intent/follow?screen_name=aroussi)
-&nbsp;
-[![Star this repo](https://img.shields.io/badge/★-Star%20this%20repo-e7b10b)](https://github.com/automazeio/ccpm)
+[![GitHub Issues](https://img.shields.io/github/issues/ZephyrDeng/dev-context)](https://github.com/ZephyrDeng/dev-context/issues)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org/)
+[![MCP SDK](https://img.shields.io/badge/MCP-SDK%20v0.4.0-green.svg)](https://github.com/modelcontextprotocol/go-sdk)
 
-### Claude Code workflow to ship ~~faster~~ _better_ using spec-driven development, GitHub issues, Git worktrees, and mutiple AI agents running in parallel.
+### A production-ready MCP (Model Context Protocol) server providing real-time frontend development news aggregation and analysis.
 
-Stop losing context. Stop blocking on tasks. Stop shipping bugs. This battle-tested system turns PRDs into epics, epics into GitHub issues, and issues into production code – with full traceability at every step.
+Built using Claude Code PM system for spec-driven development with complete GitHub Issues traceability from requirements to production code.
 
-![Claude Code PM](screenshot.webp)
+![MCP Server Architecture](https://img.shields.io/badge/Architecture-Enterprise%20Grade-brightgreen)
 
-## Table of Contents
+## 🚀 Features
 
-- [Background](#background)
-- [The Workflow](#the-workflow)
-- [What Makes This Different?](#what-makes-this-different)
-- [Why GitHub Issues?](#why-github-issues)
-- [Core Principle: No Vibe Coding](#core-principle-no-vibe-coding)
-- [System Architecture](#system-architecture)
-- [Workflow Phases](#workflow-phases)
-- [Command Reference](#command-reference)
-- [The Parallel Execution System](#the-parallel-execution-system)
-- [Key Features & Benefits](#key-features--benefits)
-- [Proven Results](#proven-results)
-- [Example Flow](#example-flow)
-- [Get Started Now](#get-started-now)
-- [Local vs Remote](#local-vs-remote)
-- [Technical Notes](#technical-notes)
-- [Support This Project](#support-this-project)
+### Core MCP Tools
+- **📰 Weekly Frontend News** - Curated weekly reports of frontend development news from multiple sources
+- **⭐ Trending Repositories** - GitHub trending analysis for frontend technologies and frameworks  
+- **🔍 Technical Topic Search** - Intelligent search and analysis of specific frontend technologies
 
-## Background
+### Enterprise Architecture
+- **🏗️ Multi-layer Caching** - High-performance Redis-backed caching with TTL and concurrency safety
+- **📊 Concurrent Data Collection** - Multi-source parallel data gathering (RSS/API/HTML)
+- **🔄 Smart Data Processing** - Intelligent scoring, deduplication, and content formatting
+- **🐳 Production Deployment** - Docker containerization with CI/CD and monitoring
 
-Every team struggles with the same problems:
-- **Context evaporates** between sessions, forcing constant re-discovery
-- **Parallel work creates conflicts** when multiple developers touch the same code
-- **Requirements drift** as verbal decisions override written specs
-- **Progress becomes invisible** until the very end
+## 📋 Table of Contents
 
-This system solves all of that.
+- [Quick Start](#quick-start)
+- [MCP Tools](#mcp-tools)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Deployment](#deployment)
+- [API Documentation](#api-documentation)
+- [Project Management](#project-management)
+- [Contributing](#contributing)
 
-## The Workflow
+## 🏁 Quick Start
 
-```mermaid
-graph LR
-    A[PRD Creation] --> B[Epic Planning]
-    B --> C[Task Decomposition]
-    C --> D[GitHub Sync]
-    D --> E[Parallel Execution]
-```
-
-### See It In Action (60 seconds)
+### Using Docker (Recommended)
 
 ```bash
-# Create a comprehensive PRD through guided brainstorming
-/pm:prd-new memory-system
+# Clone the repository
+git clone https://github.com/ZephyrDeng/dev-context.git
+cd dev-context
 
-# Transform PRD into a technical epic with task breakdown
-/pm:prd-parse memory-system
+# Start with Docker Compose
+docker-compose up -d
 
-# Push to GitHub and start parallel execution
-/pm:epic-oneshot memory-system
-/pm:issue-start 1235
+# Check status
+docker-compose ps
 ```
 
-## What Makes This Different?
-
-| Traditional Development | Claude Code PM System |
-|------------------------|----------------------|
-| Context lost between sessions | **Persistent context** across all work |
-| Serial task execution | **Parallel agents** on independent tasks |
-| "Vibe coding" from memory | **Spec-driven** with full traceability |
-| Progress hidden in branches | **Transparent audit trail** in GitHub |
-| Manual task coordination | **Intelligent prioritization** with `/pm:next` |
-
-## Why GitHub Issues?
-
-Most Claude Code workflows operate in isolation – a single developer working with AI in their local environment. This creates a fundamental problem: **AI-assisted development becomes a silo**.
-
-By using GitHub Issues as our database, we unlock something powerful:
-
-### 🤝 **True Team Collaboration**
-- Multiple Claude instances can work on the same project simultaneously
-- Human developers see AI progress in real-time through issue comments
-- Team members can jump in anywhere – the context is always visible
-- Managers get transparency without interrupting flow
-
-### 🔄 **Seamless Human-AI Handoffs**
-- AI can start a task, human can finish it (or vice versa)
-- Progress updates are visible to everyone, not trapped in chat logs
-- Code reviews happen naturally through PR comments
-- No "what did the AI do?" meetings
-
-### 📈 **Scalable Beyond Solo Work**
-- Add team members without onboarding friction
-- Multiple AI agents working in parallel on different issues
-- Distributed teams stay synchronized automatically
-- Works with existing GitHub workflows and tools
-
-### 🎯 **Single Source of Truth**
-- No separate databases or project management tools
-- Issue state is the project state
-- Comments are the audit trail
-- Labels provide organization
-
-This isn't just a project management system – it's a **collaboration protocol** that lets humans and AI agents work together at scale, using infrastructure your team already trusts.
-
-## Core Principle: No Vibe Coding
-
-> **Every line of code must trace back to a specification.**
-
-We follow a strict 5-phase discipline:
-
-1. **🧠 Brainstorm** - Think deeper than comfortable
-2. **📝 Document** - Write specs that leave nothing to interpretation
-3. **📐 Plan** - Architect with explicit technical decisions
-4. **⚡ Execute** - Build exactly what was specified
-5. **📊 Track** - Maintain transparent progress at every step
-
-No shortcuts. No assumptions. No regrets.
-
-## System Architecture
-
-```
-.claude/
-├── CLAUDE.md          # Always-on instructions (copy content to your project's CLAUDE.md file)
-├── agents/            # Task-oriented agents (for context preservation)
-├── commands/          # Command definitions
-│   ├── context/       # Create, update, and prime context
-│   ├── pm/            # ← Project management commands (this system)
-│   └── testing/       # Prime and execute tests (edit this)
-├── context/           # Project-wide context files
-├── epics/             # ← PM's local workspace (place in .gitignore)
-│   └── [epic-name]/   # Epic and related tasks
-│       ├── epic.md    # Implementation plan
-│       ├── [#].md     # Individual task files
-│       └── updates/   # Work-in-progress updates
-├── prds/              # ← PM's PRD files
-├── rules/             # Place any rule files you'd like to reference here
-└── scripts/           # Place any script files you'd like to use here
-```
-
-## Workflow Phases
-
-### 1. Product Planning Phase
+### Local Development
 
 ```bash
-/pm:prd-new feature-name
+# Navigate to the MCP server code
+cd /Users/zephyr/mcp-servers/epic-mvp
+
+# Install dependencies
+go mod tidy
+
+# Run locally
+make run-dev
+
+# Or build and run
+make build
+./bin/frontend-news-mcp
 ```
-Launches comprehensive brainstorming to create a Product Requirements Document capturing vision, user stories, success criteria, and constraints.
 
-**Output:** `.claude/prds/feature-name.md`
+## 🛠 MCP Tools
 
-### 2. Implementation Planning Phase
+### 1. Weekly Frontend News (`weekly_news`)
+
+Aggregates and curates frontend development news from multiple sources.
+
+**Parameters:**
+- `startDate` - Start date for news collection (optional, defaults to 7 days ago)
+- `endDate` - End date (optional, defaults to today)
+- `category` - Filter by technology (react, vue, angular, etc.)
+- `minQuality` - Minimum quality score (0.0-1.0, default 0.5)
+- `maxResults` - Maximum results (default 50, max 200)
+
+**Example Usage:**
+```json
+{
+  "name": "weekly_news",
+  "arguments": {
+    "category": "react",
+    "minQuality": 0.7,
+    "maxResults": 30
+  }
+}
+```
+
+### 2. Trending Repositories (`trending_repos`)
+
+Analyzes GitHub trending repositories for frontend technologies.
+
+**Parameters:**
+- `language` - Programming language filter (javascript, typescript, etc.)
+- `timeRange` - Time range (daily, weekly, monthly)
+- `minStars` - Minimum star count (default 10)
+- `maxResults` - Maximum results (default 30, max 100)
+
+**Example Usage:**
+```json
+{
+  "name": "trending_repos",
+  "arguments": {
+    "language": "typescript",
+    "timeRange": "weekly",
+    "minStars": 100
+  }
+}
+```
+
+### 3. Technical Topic Search (`topic_search`)
+
+Intelligent search and analysis of specific frontend technologies.
+
+**Parameters:**
+- `topic` - Technology or topic to search
+- `sources` - Comma-separated list of sources
+- `depth` - Search depth (shallow, moderate, deep)
+- `maxResults` - Maximum results (default 20, max 100)
+
+**Example Usage:**
+```json
+{
+  "name": "topic_search",
+  "arguments": {
+    "topic": "Next.js 15",
+    "depth": "moderate",
+    "maxResults": 25
+  }
+}
+```
+
+## 🏗 Architecture
+
+### System Components
+
+```
+Frontend News MCP Server
+├── 🌐 MCP Protocol Layer (Go SDK v0.4.0)
+├── 🛠️ Core Tools
+│   ├── weekly_news      # Frontend news aggregation
+│   ├── trending_repos   # GitHub trending analysis
+│   └── topic_search     # Technical topic search
+├── 📊 Data Processing
+│   ├── Multi-source collection (RSS/API/HTML)
+│   ├── Content processing & scoring
+│   └── Format conversion (JSON/Markdown/Text)
+├── 💾 Caching Layer
+│   ├── Redis backend
+│   ├── TTL management
+│   └── Concurrency safety
+└── 🚀 Deployment
+    ├── Docker containers
+    ├── CI/CD pipeline
+    └── Monitoring & logs
+```
+
+### Data Sources
+- **GitHub API** - Repository trends and statistics
+- **Dev.to API** - Developer community articles
+- **RSS Feeds** - CSS-Tricks, Hacker News, etc.
+- **Web Scraping** - Additional frontend resources
+
+## 💻 Development
+
+### Prerequisites
+- Go 1.21+
+- Docker & Docker Compose
+- GitHub CLI (for project management)
+
+### Build Commands
 
 ```bash
-/pm:prd-parse feature-name
+# Development build
+make build-dev
+
+# Production build
+make build-prod
+
+# Cross-platform builds
+make build-all
+
+# Run tests
+make test
+
+# Test coverage
+make test-coverage
+
+# Docker build
+make docker-build
 ```
-Transforms PRD into a technical implementation plan with architectural decisions, technical approach, and dependency mapping.
 
-**Output:** `.claude/epics/feature-name/epic.md`
+### Testing
 
-### 3. Task Decomposition Phase
+The project includes comprehensive testing with >80% coverage:
 
 ```bash
-/pm:epic-decompose feature-name
+# Run all tests
+make test
+
+# Integration tests
+make test-integration
+
+# MCP protocol tests
+make test-mcp
+
+# View coverage report
+open coverage/coverage.html
 ```
-Breaks epic into concrete, actionable tasks with acceptance criteria, effort estimates, and parallelization flags.
 
-**Output:** `.claude/epics/feature-name/[task].md`
+## 🚀 Deployment
 
-### 4. GitHub Synchronization
+### Production Deployment
 
 ```bash
-/pm:epic-sync feature-name
-# Or for confident workflows:
-/pm:epic-oneshot feature-name
-```
-Pushes epic and tasks to GitHub as issues with appropriate labels and relationships.
+# Build production image
+make docker-build
 
-### 5. Execution Phase
+# Deploy with monitoring
+docker-compose -f docker-compose.prod.yml up -d
+
+# Check health
+curl http://localhost:8080/health
+```
+
+### Environment Configuration
+
+Key environment variables:
 
 ```bash
-/pm:issue-start 1234  # Launch specialized agent
-/pm:issue-sync 1234   # Push progress updates
-/pm:next             # Get next priority task
+# Server Configuration
+MCP_SERVER_HOST=0.0.0.0
+MCP_SERVER_PORT=8080
+
+# Cache Configuration  
+REDIS_URL=redis://localhost:6379
+
+# API Keys (store securely)
+GITHUB_TOKEN=your_github_token
+DEV_TO_API_KEY=your_dev_to_key
 ```
-Specialized agents implement tasks while maintaining progress updates and an audit trail.
 
-## Command Reference
+See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
 
-> [!TIP]
-> Type `/pm:help` for a concise command summary
+## 📚 API Documentation
 
-### Initial Setup
-- `/pm:init` - Install dependencies and configure GitHub
+- **[API Reference](docs/API.md)** - Complete MCP tools documentation
+- **[Installation Guide](docs/INSTALL.md)** - Step-by-step setup instructions
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
-### PRD Commands
-- `/pm:prd-new` - Launch brainstorming for new product requirement
-- `/pm:prd-parse` - Convert PRD to implementation epic
-- `/pm:prd-list` - List all PRDs
-- `/pm:prd-edit` - Edit existing PRD
-- `/pm:prd-status` - Show PRD implementation status
+## 📋 Project Management
 
-### Epic Commands
-- `/pm:epic-decompose` - Break epic into task files
-- `/pm:epic-sync` - Push epic and tasks to GitHub
-- `/pm:epic-oneshot` - Decompose and sync in one command
-- `/pm:epic-list` - List all epics
-- `/pm:epic-show` - Display epic and its tasks
-- `/pm:epic-close` - Mark epic as complete
-- `/pm:epic-edit` - Edit epic details
-- `/pm:epic-refresh` - Update epic progress from tasks
+This project was built using the **Claude Code PM system** for spec-driven development:
 
-### Issue Commands
-- `/pm:issue-show` - Display issue and sub-issues
-- `/pm:issue-status` - Check issue status
-- `/pm:issue-start` - Begin work with specialized agent
-- `/pm:issue-sync` - Push updates to GitHub
-- `/pm:issue-close` - Mark issue as complete
-- `/pm:issue-reopen` - Reopen closed issue
-- `/pm:issue-edit` - Edit issue details
+### Development Workflow
+- ✅ **PRD Creation** - Comprehensive product requirements
+- ✅ **Epic Planning** - Technical architecture and approach  
+- ✅ **Task Decomposition** - Granular implementation tasks
+- ✅ **GitHub Integration** - Full issue tracking and traceability
+- ✅ **Parallel Execution** - Multiple concurrent development streams
 
-### Workflow Commands
-- `/pm:next` - Show next priority issue with epic context
-- `/pm:status` - Overall project dashboard
-- `/pm:standup` - Daily standup report
-- `/pm:blocked` - Show blocked tasks
-- `/pm:in-progress` - List work in progress
+### Project Status
+- 🎉 **Epic MVP Completed** - 100% (8/8 tasks)
+- ✅ MCP SDK Integration
+- ✅ Multi-source Data Collection  
+- ✅ Cache Management System
+- ✅ Core MCP Tools Implementation
+- ✅ Data Processing & Formatting
+- ✅ Complete Test Suite (>80% coverage)
+- ✅ Production Deployment & Documentation
 
-### Sync Commands
-- `/pm:sync` - Full bidirectional sync with GitHub
-- `/pm:import` - Import existing GitHub issues
-
-### Maintenance Commands
-- `/pm:validate` - Check system integrity
-- `/pm:clean` - Archive completed work
-- `/pm:search` - Search across all content
-
-## The Parallel Execution System
-
-### Issues Aren't Atomic
-
-Traditional thinking: One issue = One developer = One task
-
-**Reality: One issue = Multiple parallel work streams**
-
-A single "Implement user authentication" issue isn't one task. It's...
-
-- **Agent 1**: Database tables and migrations
-- **Agent 2**: Service layer and business logic
-- **Agent 3**: API endpoints and middleware
-- **Agent 4**: UI components and forms
-- **Agent 5**: Test suites and documentation
-
-All running **simultaneously** in the same worktree.
-
-### The Math of Velocity
-
-**Traditional Approach:**
-- Epic with 3 issues
-- Sequential execution
-
-**This System:**
-- Same epic with 3 issues
-- Each issue splits into ~4 parallel streams
-- **12 agents working simultaneously**
-
-We're not assigning agents to issues. We're **leveraging multiple agents** to ship faster.
-
-### Context Optimization
-
-**Traditional single-thread approach:**
-- Main conversation carries ALL the implementation details
-- Context window fills with database schemas, API code, UI components
-- Eventually hits context limits and loses coherence
-
-**Parallel agent approach:**
-- Main thread stays clean and strategic
-- Each agent handles its own context in isolation
-- Implementation details never pollute the main conversation
-- Main thread maintains oversight without drowning in code
-
-Your main conversation becomes the conductor, not the orchestra.
-
-### GitHub vs Local: Perfect Separation
-
-**What GitHub Sees:**
-- Clean, simple issues
-- Progress updates
-- Completion status
-
-**What Actually Happens Locally:**
-- Issue #1234 explodes into 5 parallel agents
-- Agents coordinate through Git commits
-- Complex orchestration hidden from view
-
-GitHub doesn't need to know HOW the work got done – just that it IS done.
-
-### The Command Flow
+### Project Management Commands
 
 ```bash
-# Analyze what can be parallelized
-/pm:issue-analyze 1234
+# View project status
+/pm:status
 
-# Launch the swarm
-/pm:epic-start memory-system
+# Sync with GitHub Issues
+/pm:sync
 
-# Watch the magic
-# 12 agents working across 3 issues
-# All in: ../epic-memory-system/
-
-# One clean merge when done
-/pm:epic-merge memory-system
+# View all completed work
+/pm:epic-show mvp
 ```
 
-## Key Features & Benefits
+## 🤝 Contributing
 
-### 🧠 **Context Preservation**
-Never lose project state again. Each epic maintains its own context, agents read from `.claude/context/`, and updates locally before syncing.
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes
+4. Run tests: `make test`
+5. Commit changes: `git commit -m 'Add amazing feature'`
+6. Push to branch: `git push origin feature/amazing-feature`
+7. Open a Pull Request
 
-### ⚡ **Parallel Execution**
-Ship faster with multiple agents working simultaneously. Tasks marked `parallel: true` enable conflict-free concurrent development.
+## 📊 Project Metrics
 
-### 🔗 **GitHub Native**
-Works with tools your team already uses. Issues are the source of truth, comments provide history, and there is no dependency on the Projects API.
+- **Lines of Code**: 15,000+
+- **Test Coverage**: >80%
+- **Build Time**: <2 minutes
+- **Docker Image**: <50MB (Alpine-based)
+- **Startup Time**: <5 seconds
 
-### 🤖 **Agent Specialization**
-Right tool for every job. Different agents for UI, API, and database work. Each reads requirements and posts updates automatically.
+## 📝 License
 
-### 📊 **Full Traceability**
-Every decision is documented. PRD → Epic → Task → Issue → Code → Commit. Complete audit trail from idea to production.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### 🚀 **Developer Productivity**
-Focus on building, not managing. Intelligent prioritization, automatic context loading, and incremental sync when ready.
+## 🎯 Roadmap
 
-## Proven Results
-
-Teams using this system report:
-- **89% less time** lost to context switching – you'll use `/compact` and `/clear` a LOT less
-- **5-8 parallel tasks** vs 1 previously – editing/testing multiple files at the same time
-- **75% reduction** in bug rates – due to the breaking down features into detailed tasks
-- **Up to 3x faster** feature delivery – based on feature size and complexity
-
-## Example Flow
-
-```bash
-# Start a new feature
-/pm:prd-new memory-system
-
-# Review and refine the PRD...
-
-# Create implementation plan
-/pm:prd-parse memory-system
-
-# Review the epic...
-
-# Break into tasks and push to GitHub
-/pm:epic-oneshot memory-system
-# Creates issues: #1234 (epic), #1235, #1236 (tasks)
-
-# Start development on a task
-/pm:issue-start 1235
-# Agent begins work, maintains local progress
-
-# Sync progress to GitHub
-/pm:issue-sync 1235
-# Updates posted as issue comments
-
-# Check overall status
-/pm:epic-show memory-system
-```
-
-## Get Started Now
-
-### Quick Setup (2 minutes)
-
-1. **Install this repository into your project**:
-
-   #### Unix/Linux/macOS
-
-   ```bash
-   cd path/to/your/project/
-   curl -sSL https://raw.githubusercontent.com/automazeio/ccpm/main/ccpm.sh | bash
-   # or: wget -qO- https://raw.githubusercontent.com/automazeio/ccpm/main/ccpm.sh | bash
-   ```
-
-   #### Windows (PowerShell)
-   ```bash
-   cd path/to/your/project/
-   iwr -useb https://raw.githubusercontent.com/automazeio/ccpm/main/ccpm.bat | iex
-   ```
-   > ⚠️ **IMPORTANT**: If you already have a `.claude` directory, clone this repository to a different directory and copy the contents of the cloned `.claude` directory to your project's `.claude` directory.
-
-   See full/other installation options in the [installation guide ›](https://github.com/automazeio/ccpm/tree/main/install)
-
-
-2. **Initialize the PM system**:
-   ```bash
-   /pm:init
-   ```
-   This command will:
-   - Install GitHub CLI (if needed)
-   - Authenticate with GitHub
-   - Install [gh-sub-issue extension](https://github.com/yahsan2/gh-sub-issue) for proper parent-child relationships
-   - Create required directories
-   - Update .gitignore
-
-3. **Create `CLAUDE.md`** with your repository information
-   ```bash
-   /init include rules from .claude/CLAUDE.md
-   ```
-   > If you already have a `CLAUDE.md` file, run: `/re-init` to update it with important rules from `.claude/CLAUDE.md`.
-
-4. **Prime the system**:
-   ```bash
-   /context:create
-   ```
-
-
-
-### Start Your First Feature
-
-```bash
-/pm:prd-new your-feature-name
-```
-
-Watch as structured planning transforms into shipped code.
-
-## Local vs Remote
-
-| Operation | Local | GitHub |
-|-----------|-------|--------|
-| PRD Creation | ✅ | — |
-| Implementation Planning | ✅ | — |
-| Task Breakdown | ✅ | ✅ (sync) |
-| Execution | ✅ | — |
-| Status Updates | ✅ | ✅ (sync) |
-| Final Deliverables | — | ✅ |
-
-## Technical Notes
-
-### GitHub Integration
-- Uses **gh-sub-issue extension** for proper parent-child relationships
-- Falls back to task lists if extension not installed
-- Epic issues track sub-task completion automatically
-- Labels provide additional organization (`epic:feature`, `task:feature`)
-
-### File Naming Convention
-- Tasks start as `001.md`, `002.md` during decomposition
-- After GitHub sync, renamed to `{issue-id}.md` (e.g., `1234.md`)
-- Makes it easy to navigate: issue #1234 = file `1234.md`
-
-### Design Decisions
-- Intentionally avoids GitHub Projects API complexity
-- All commands operate on local files first for speed
-- Synchronization with GitHub is explicit and controlled
-- Worktrees provide clean git isolation for parallel work
-- GitHub Projects can be added separately for visualization
+- [ ] Additional data sources integration
+- [ ] Advanced filtering and personalization
+- [ ] GraphQL API support
+- [ ] WebSocket real-time updates
+- [ ] Mobile-optimized responses
 
 ---
 
-## Support This Project
+**Built with [Claude Code](https://claude.ai/code) using spec-driven development and GitHub Issues project management.**
 
-Claude Code PM was developed at [Automaze](https://automaze.io) **for developers who ship, by developers who ship**.
+## ⭐ Star History
 
-If Claude Code PM helps your team ship better software:
+If this project helps you, please consider giving it a star!
 
-- ⭐ **[Star this repository](https://github.com/automazeio/ccpm)** to show your support
-- 🐦 **[Follow @aroussi on X](https://x.com/aroussi)** for updates and tips
-
-
----
-
-> [!TIP]
-> **Ship faster with Automaze.** We partner with founders to bring their vision to life, scale their business, and optimize for success.
-> **[Visit Automaze to book a call with me ›](https://automaze.io)**
-
----
-
-## Star History
-
-![Star History Chart](https://api.star-history.com/svg?repos=automazeio/ccpm)
+[![Star History Chart](https://api.star-history.com/svg?repos=ZephyrDeng/dev-context&type=Timeline)](https://star-history.com/#ZephyrDeng/dev-context&Timeline)
