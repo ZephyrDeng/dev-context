@@ -159,17 +159,15 @@ func main() {
 }
 
 func initializeCacheManager() *cache.CacheManager {
-	// TODO: 根据实际cache包API调整
 	log.Printf("初始化缓存管理器")
-	// 暂时返回nil，后续根据实际API实现
-	return nil
+	config := cache.DefaultCacheConfig()
+	return cache.NewCacheManager(config)
 }
 
 func initializeCollectorManager() *collector.CollectorManager {
-	// TODO: 根据实际collector包API调整  
 	log.Printf("初始化数据采集管理器")
-	// 暂时返回nil，后续根据实际API实现
-	return nil
+	mgr := collector.NewCollectorManager()
+	return &mgr
 }
 
 func initializeProcessor() *processor.Processor {
