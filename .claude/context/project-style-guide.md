@@ -237,7 +237,7 @@ $ gh issue list
 ```
 
 ### File References
-- **Absolute paths**: `/Users/project/.claude/context/progress.md`
+- **Absolute paths**: `./.claude/context/progress.md`
 - **Relative paths**: `.claude/commands/pm/prd-new.md`
 - **With line numbers**: `src/auth.js:42` (for code references)
 
