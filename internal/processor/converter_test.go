@@ -6,17 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"frontend-news-mcp/internal/collector"
+	"github.com/ZephyrDeng/dev-context/internal/collector"
 )
 
 func TestNewConverter(t *testing.T) {
 	config := DefaultConverterConfig()
 	converter := NewConverter(config)
-	
+
 	if converter == nil {
 		t.Fatal("NewConverter returned nil")
 	}
-	
+
 	if converter.config.MaxSummaryLength != config.MaxSummaryLength {
 		t.Errorf("Expected MaxSummaryLength %d, got %d", config.MaxSummaryLength, converter.config.MaxSummaryLength)
 	}
@@ -24,11 +24,11 @@ func TestNewConverter(t *testing.T) {
 
 func TestNewDefaultConverter(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	if converter == nil {
 		t.Fatal("NewDefaultConverter returned nil")
 	}
-	
+
 	expectedConfig := DefaultConverterConfig()
 	if converter.config.MaxSummaryLength != expectedConfig.MaxSummaryLength {
 		t.Errorf("Expected default MaxSummaryLength %d, got %d", expectedConfig.MaxSummaryLength, converter.config.MaxSummaryLength)
@@ -37,7 +37,7 @@ func TestNewDefaultConverter(t *testing.T) {
 
 func TestConvertToArticle_BasicConversion(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	collectorArticle := collector.Article{
 		ID:          "test-123",
 		Title:       "Test Article Title",
@@ -52,43 +52,43 @@ func TestConvertToArticle_BasicConversion(t *testing.T) {
 		Language:    "en",
 		Metadata:    map[string]string{"category": "technology"},
 	}
-	
+
 	article, err := converter.ConvertToArticle(collectorArticle)
 	if err != nil {
 		t.Fatalf("ConvertToArticle failed: %v", err)
 	}
-	
+
 	if article == nil {
 		t.Fatal("ConvertToArticle returned nil article")
 	}
-	
+
 	// Test basic fields
 	if article.Title != collectorArticle.Title {
 		t.Errorf("Expected title %q, got %q", collectorArticle.Title, article.Title)
 	}
-	
+
 	if article.URL != collectorArticle.URL {
 		t.Errorf("Expected URL %q, got %q", collectorArticle.URL, article.URL)
 	}
-	
+
 	if article.Source != collectorArticle.Source {
 		t.Errorf("Expected source %q, got %q", collectorArticle.Source, article.Source)
 	}
-	
+
 	if article.SourceType != collectorArticle.SourceType {
 		t.Errorf("Expected sourceType %q, got %q", collectorArticle.SourceType, article.SourceType)
 	}
-	
+
 	// Test that HTML tags are removed from content
 	if article.Content == collectorArticle.Content {
 		t.Error("Expected HTML tags to be removed from content")
 	}
-	
+
 	// Test tags are properly converted
 	if len(article.Tags) != len(collectorArticle.Tags) {
 		t.Errorf("Expected %d tags, got %d", len(collectorArticle.Tags), len(article.Tags))
 	}
-	
+
 	// Test metadata is copied
 	author, exists := article.GetMetadata("author")
 	if !exists || author != collectorArticle.Author {
@@ -98,7 +98,7 @@ func TestConvertToArticle_BasicConversion(t *testing.T) {
 
 func TestConvertToArticle_EmptyRequiredFields(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	testCases := []struct {
 		name    string
 		article collector.Article
@@ -140,7 +140,7 @@ func TestConvertToArticle_EmptyRequiredFields(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := converter.ConvertToArticle(tc.article)
@@ -153,7 +153,7 @@ func TestConvertToArticle_EmptyRequiredFields(t *testing.T) {
 
 func TestConvertToArticle_HTMLCleaning(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	testCases := []struct {
 		name     string
 		input    string
@@ -180,7 +180,7 @@ func TestConvertToArticle_HTMLCleaning(t *testing.T) {
 			expected: "Text with <entities> and & symbols",
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			collectorArticle := collector.Article{
@@ -190,12 +190,12 @@ func TestConvertToArticle_HTMLCleaning(t *testing.T) {
 				Source:     "example.com",
 				SourceType: "rss",
 			}
-			
+
 			article, err := converter.ConvertToArticle(collectorArticle)
 			if err != nil {
 				t.Fatalf("ConvertToArticle failed: %v", err)
 			}
-			
+
 			if article.Content != tc.expected {
 				t.Errorf("Expected content %q, got %q", tc.expected, article.Content)
 			}
@@ -205,7 +205,7 @@ func TestConvertToArticle_HTMLCleaning(t *testing.T) {
 
 func TestConvertToArticle_URLNormalization(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	testCases := []struct {
 		name     string
 		input    string
@@ -227,7 +227,7 @@ func TestConvertToArticle_URLNormalization(t *testing.T) {
 			expected: "https://example.com/article",
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			collectorArticle := collector.Article{
@@ -237,12 +237,12 @@ func TestConvertToArticle_URLNormalization(t *testing.T) {
 				SourceType: "rss",
 				Summary:    "This is a test summary for URL normalization testing",
 			}
-			
+
 			article, err := converter.ConvertToArticle(collectorArticle)
 			if err != nil {
 				t.Fatalf("ConvertToArticle failed: %v", err)
 			}
-			
+
 			if article.URL != tc.expected {
 				t.Errorf("Expected URL %q, got %q", tc.expected, article.URL)
 			}
@@ -252,7 +252,7 @@ func TestConvertToArticle_URLNormalization(t *testing.T) {
 
 func TestConvertToArticle_SummaryGeneration(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	testCases := []struct {
 		name            string
 		providedSummary string
@@ -278,7 +278,7 @@ func TestConvertToArticle_SummaryGeneration(t *testing.T) {
 			expectGenerated: true,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			collectorArticle := collector.Article{
@@ -289,12 +289,12 @@ func TestConvertToArticle_SummaryGeneration(t *testing.T) {
 				Source:     "example.com",
 				SourceType: "rss",
 			}
-			
+
 			article, err := converter.ConvertToArticle(collectorArticle)
 			if err != nil {
 				t.Fatalf("ConvertToArticle failed: %v", err)
 			}
-			
+
 			if tc.expectGenerated {
 				if article.Summary == tc.providedSummary {
 					t.Error("Expected summary to be generated from content, but got provided summary")
@@ -304,7 +304,7 @@ func TestConvertToArticle_SummaryGeneration(t *testing.T) {
 					t.Errorf("Expected to use provided summary %q, got %q", tc.providedSummary, article.Summary)
 				}
 			}
-			
+
 			// Ensure summary meets length requirements
 			if len(article.Summary) < 10 {
 				t.Errorf("Summary too short: %q", article.Summary)
@@ -318,7 +318,7 @@ func TestConvertToArticle_SummaryGeneration(t *testing.T) {
 
 func TestConvertToRepository(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	metadata := map[string]string{
 		"description": "A test repository for testing purposes",
 		"language":    "Go",
@@ -326,52 +326,52 @@ func TestConvertToRepository(t *testing.T) {
 		"forks":       "7",
 		"updated_at":  "2023-01-15T10:30:00Z",
 	}
-	
+
 	repo, err := converter.ConvertToRepository(
 		"test-repo",
 		"user/test-repo",
 		"https://github.com/user/test-repo",
 		metadata,
 	)
-	
+
 	if err != nil {
 		t.Fatalf("ConvertToRepository failed: %v", err)
 	}
-	
+
 	if repo == nil {
 		t.Fatal("ConvertToRepository returned nil repository")
 	}
-	
+
 	// Test basic fields
 	if repo.Name != "test-repo" {
 		t.Errorf("Expected name %q, got %q", "test-repo", repo.Name)
 	}
-	
+
 	if repo.FullName != "user/test-repo" {
 		t.Errorf("Expected fullName %q, got %q", "user/test-repo", repo.FullName)
 	}
-	
+
 	if repo.URL != "https://github.com/user/test-repo" {
 		t.Errorf("Expected URL %q, got %q", "https://github.com/user/test-repo", repo.URL)
 	}
-	
+
 	// Test metadata conversion
 	if repo.Description != metadata["description"] {
 		t.Errorf("Expected description %q, got %q", metadata["description"], repo.Description)
 	}
-	
+
 	if repo.Language != metadata["language"] {
 		t.Errorf("Expected language %q, got %q", metadata["language"], repo.Language)
 	}
-	
+
 	if repo.Stars != 42 {
 		t.Errorf("Expected stars %d, got %d", 42, repo.Stars)
 	}
-	
+
 	if repo.Forks != 7 {
 		t.Errorf("Expected forks %d, got %d", 7, repo.Forks)
 	}
-	
+
 	// Test that trend score was calculated
 	if repo.TrendScore == 0.0 {
 		t.Error("Expected trend score to be calculated")
@@ -380,7 +380,7 @@ func TestConvertToRepository(t *testing.T) {
 
 func TestConvertToRepository_EmptyRequiredFields(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	testCases := []struct {
 		name     string
 		repoName string
@@ -406,7 +406,7 @@ func TestConvertToRepository_EmptyRequiredFields(t *testing.T) {
 			url:      "",
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := converter.ConvertToRepository(tc.repoName, tc.fullName, tc.url, map[string]string{})
@@ -419,7 +419,7 @@ func TestConvertToRepository_EmptyRequiredFields(t *testing.T) {
 
 func TestBatchConvertArticles(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	collectorArticles := []collector.Article{
 		{
 			Title:      "Article 1",
@@ -444,17 +444,17 @@ func TestBatchConvertArticles(t *testing.T) {
 			Summary:    "This is test summary for article 3",
 		},
 	}
-	
+
 	articles, errors := converter.BatchConvertArticles(collectorArticles)
-	
+
 	if len(articles) != len(collectorArticles) {
 		t.Errorf("Expected %d articles, got %d", len(collectorArticles), len(articles))
 	}
-	
+
 	if len(errors) != len(collectorArticles) {
 		t.Errorf("Expected %d errors, got %d", len(collectorArticles), len(errors))
 	}
-	
+
 	// First two should succeed
 	if errors[0] != nil {
 		t.Errorf("Expected first conversion to succeed, got error: %v", errors[0])
@@ -462,14 +462,14 @@ func TestBatchConvertArticles(t *testing.T) {
 	if articles[0] == nil {
 		t.Error("Expected first article to be converted")
 	}
-	
+
 	if errors[1] != nil {
 		t.Errorf("Expected second conversion to succeed, got error: %v", errors[1])
 	}
 	if articles[1] == nil {
 		t.Error("Expected second article to be converted")
 	}
-	
+
 	// Third should fail
 	if errors[2] == nil {
 		t.Error("Expected third conversion to fail due to empty title")
@@ -481,13 +481,13 @@ func TestBatchConvertArticles(t *testing.T) {
 
 func TestBatchConvertArticles_EmptySlice(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	articles, errors := converter.BatchConvertArticles([]collector.Article{})
-	
+
 	if len(articles) != 0 {
 		t.Errorf("Expected empty articles slice, got %d articles", len(articles))
 	}
-	
+
 	if len(errors) != 0 {
 		t.Errorf("Expected empty errors slice, got %d errors", len(errors))
 	}
@@ -495,21 +495,21 @@ func TestBatchConvertArticles_EmptySlice(t *testing.T) {
 
 func TestConcurrentConversion(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	// Test concurrent access to converter
 	const numGoroutines = 10
 	const articlesPerGoroutine = 5
-	
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var totalArticles int
 	var totalErrors int
-	
+
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func(goroutineID int) {
 			defer wg.Done()
-			
+
 			collectorArticles := make([]collector.Article, articlesPerGoroutine)
 			for j := 0; j < articlesPerGoroutine; j++ {
 				collectorArticles[j] = collector.Article{
@@ -520,18 +520,18 @@ func TestConcurrentConversion(t *testing.T) {
 					Summary:    "Test summary for concurrent conversion testing",
 				}
 			}
-			
+
 			articles, errors := converter.BatchConvertArticles(collectorArticles)
-			
+
 			mu.Lock()
 			defer mu.Unlock()
-			
+
 			for _, article := range articles {
 				if article != nil {
 					totalArticles++
 				}
 			}
-			
+
 			for _, err := range errors {
 				if err != nil {
 					totalErrors++
@@ -539,14 +539,14 @@ func TestConcurrentConversion(t *testing.T) {
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
-	
+
 	expectedArticles := numGoroutines * articlesPerGoroutine
 	if totalArticles != expectedArticles {
 		t.Errorf("Expected %d successful conversions, got %d", expectedArticles, totalArticles)
 	}
-	
+
 	if totalErrors != 0 {
 		t.Errorf("Expected no conversion errors, got %d", totalErrors)
 	}
@@ -554,7 +554,7 @@ func TestConcurrentConversion(t *testing.T) {
 
 func TestTextNormalizationFunctions(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	t.Run("removeHTMLTags", func(t *testing.T) {
 		testCases := []struct {
 			input    string
@@ -573,7 +573,7 @@ func TestTextNormalizationFunctions(t *testing.T) {
 				expected: "",
 			},
 		}
-		
+
 		for _, tc := range testCases {
 			result := converter.removeHTMLTags(tc.input)
 			if result != tc.expected {
@@ -581,7 +581,7 @@ func TestTextNormalizationFunctions(t *testing.T) {
 			}
 		}
 	})
-	
+
 	t.Run("normalizeWhitespace", func(t *testing.T) {
 		testCases := []struct {
 			input    string
@@ -600,7 +600,7 @@ func TestTextNormalizationFunctions(t *testing.T) {
 				expected: "",
 			},
 		}
-		
+
 		for _, tc := range testCases {
 			result := converter.normalizeWhitespace(tc.input)
 			if result != tc.expected {
@@ -608,7 +608,7 @@ func TestTextNormalizationFunctions(t *testing.T) {
 			}
 		}
 	})
-	
+
 	t.Run("truncateText", func(t *testing.T) {
 		testCases := []struct {
 			input     string
@@ -631,7 +631,7 @@ func TestTextNormalizationFunctions(t *testing.T) {
 				expected:  "",
 			},
 		}
-		
+
 		for _, tc := range testCases {
 			result := converter.truncateText(tc.input, tc.maxLength)
 			if result != tc.expected {
@@ -643,7 +643,7 @@ func TestTextNormalizationFunctions(t *testing.T) {
 
 func TestTimeNormalization(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	testCases := []struct {
 		name      string
 		input     string
@@ -675,7 +675,7 @@ func TestTimeNormalization(t *testing.T) {
 			shouldErr: true,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := converter.parseTime(tc.input)
@@ -691,34 +691,34 @@ func TestTimeNormalization(t *testing.T) {
 
 func TestConfigUpdateThreadSafety(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	var wg sync.WaitGroup
 	const numGoroutines = 10
-	
+
 	// Test concurrent config updates
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			
+
 			config := DefaultConverterConfig()
 			config.MaxSummaryLength = 500 + id*10
-			
+
 			converter.UpdateConfig(config)
-			
+
 			retrievedConfig := converter.GetConfig()
 			if retrievedConfig.MaxSummaryLength != config.MaxSummaryLength {
 				t.Errorf("Config update failed for goroutine %d", id)
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
 }
 
 func TestGenerateHash(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	testCases := []struct {
 		title1, url1 string
 		title2, url2 string
@@ -746,15 +746,15 @@ func TestGenerateHash(t *testing.T) {
 			shouldMatch: false,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		hash1 := converter.GenerateHash(tc.title1, tc.url1)
 		hash2 := converter.GenerateHash(tc.title2, tc.url2)
-		
+
 		if tc.shouldMatch && hash1 != hash2 {
 			t.Errorf("Expected hashes to match for %q/%q and %q/%q", tc.title1, tc.url1, tc.title2, tc.url2)
 		}
-		
+
 		if !tc.shouldMatch && hash1 == hash2 {
 			t.Errorf("Expected hashes to differ for %q/%q and %q/%q", tc.title1, tc.url1, tc.title2, tc.url2)
 		}
@@ -764,23 +764,23 @@ func TestGenerateHash(t *testing.T) {
 // Benchmark tests
 func BenchmarkConvertToArticle(b *testing.B) {
 	converter := NewDefaultConverter()
-	
+
 	collectorArticle := collector.Article{
-		Title:      "Benchmark Article Title",
-		Content:    "This is benchmark content with some <b>HTML tags</b> and longer text that might need processing",
-		Summary:    "Benchmark summary",
-		Author:     "Benchmark Author",
-		URL:        "https://example.com/benchmark",
+		Title:       "Benchmark Article Title",
+		Content:     "This is benchmark content with some <b>HTML tags</b> and longer text that might need processing",
+		Summary:     "Benchmark summary",
+		Author:      "Benchmark Author",
+		URL:         "https://example.com/benchmark",
 		PublishedAt: time.Now(),
-		Tags:       []string{"benchmark", "performance", "test"},
-		Source:     "example.com",
-		SourceType: "rss",
-		Language:   "en",
-		Metadata:   map[string]string{"category": "performance"},
+		Tags:        []string{"benchmark", "performance", "test"},
+		Source:      "example.com",
+		SourceType:  "rss",
+		Language:    "en",
+		Metadata:    map[string]string{"category": "performance"},
 	}
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		_, err := converter.ConvertToArticle(collectorArticle)
 		if err != nil {
@@ -791,7 +791,7 @@ func BenchmarkConvertToArticle(b *testing.B) {
 
 func BenchmarkBatchConvertArticles(b *testing.B) {
 	converter := NewDefaultConverter()
-	
+
 	collectorArticles := make([]collector.Article, 100)
 	for i := 0; i < 100; i++ {
 		collectorArticles[i] = collector.Article{
@@ -802,9 +802,9 @@ func BenchmarkBatchConvertArticles(b *testing.B) {
 			SourceType: "rss",
 		}
 	}
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		_, _ = converter.BatchConvertArticles(collectorArticles)
 	}
@@ -813,23 +813,23 @@ func BenchmarkBatchConvertArticles(b *testing.B) {
 // Test source-specific processing functionality
 func TestSourceSpecificProcessing(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	t.Run("RSS_processing", func(t *testing.T) {
 		collectorArticle := collector.Article{
-			Title:      "[RSS] Tech News: New Framework Released",
-			Content:    "First paragraph with important info.\n\nSecond paragraph with more details.\n\nThird paragraph.",
-			URL:        "https://example.com/rss-article",
-			Source:     "example.com",
-			SourceType: "rss",
-			Summary:    "Existing RSS summary",
+			Title:       "[RSS] Tech News: New Framework Released",
+			Content:     "First paragraph with important info.\n\nSecond paragraph with more details.\n\nThird paragraph.",
+			URL:         "https://example.com/rss-article",
+			Source:      "example.com",
+			SourceType:  "rss",
+			Summary:     "Existing RSS summary",
 			PublishedAt: time.Date(2024, 1, 1, 12, 0, 0, 0, time.FixedZone("EST", -5*3600)),
 		}
-		
+
 		article, err := converter.ConvertToArticle(collectorArticle)
 		if err != nil {
 			t.Fatalf("RSS processing failed: %v", err)
 		}
-		
+
 		// Test RSS title cleaning
 		if strings.Contains(article.Title, "[RSS]") {
 			t.Error("RSS prefix should be removed from title")
@@ -837,13 +837,13 @@ func TestSourceSpecificProcessing(t *testing.T) {
 		if article.Title != "Tech News: New Framework Released" {
 			t.Errorf("Expected cleaned title, got %q", article.Title)
 		}
-		
+
 		// Test timezone normalization
 		if article.PublishedAt.Location() != time.UTC {
 			t.Error("RSS article should be normalized to UTC timezone")
 		}
 	})
-	
+
 	t.Run("API_processing", func(t *testing.T) {
 		collectorArticle := collector.Article{
 			Title:      "API Article with \\\"escaped quotes\\\"",
@@ -853,23 +853,23 @@ func TestSourceSpecificProcessing(t *testing.T) {
 			SourceType: "api",
 			Summary:    "API summary for testing",
 		}
-		
+
 		article, err := converter.ConvertToArticle(collectorArticle)
 		if err != nil {
 			t.Fatalf("API processing failed: %v", err)
 		}
-		
+
 		// Test JSON unescaping
 		if strings.Contains(article.Title, `\"`) {
 			t.Error("JSON escaped quotes should be unescaped")
 		}
-		
+
 		// Check metadata marker
 		if processed, exists := article.GetMetadata("api_processed"); !exists || processed != "true" {
 			t.Error("API processed marker should be set in metadata")
 		}
 	})
-	
+
 	t.Run("HTML_processing", func(t *testing.T) {
 		collectorArticle := collector.Article{
 			Title:      "Great Article Title | Website Name",
@@ -879,32 +879,32 @@ func TestSourceSpecificProcessing(t *testing.T) {
 			SourceType: "html",
 			Summary:    "HTML summary for &amp; testing &lt;entities&gt;",
 		}
-		
+
 		article, err := converter.ConvertToArticle(collectorArticle)
 		if err != nil {
 			t.Fatalf("HTML processing failed: %v", err)
 		}
-		
+
 		// Test title extraction
 		if article.Title != "Great Article Title" {
 			t.Errorf("Expected extracted title %q, got %q", "Great Article Title", article.Title)
 		}
-		
+
 		// Test content cleaning - nav and footer should be removed
 		if strings.Contains(article.Content, "Navigation") || strings.Contains(article.Content, "Footer") {
 			t.Error("Navigation and footer elements should be removed from HTML content")
 		}
-		
+
 		// Test HTML entity decoding
 		if strings.Contains(article.Summary, "&amp;") || strings.Contains(article.Summary, "&lt;") {
 			t.Error("HTML entities should be decoded in summary")
 		}
-		
+
 		// Test fallback publication date
 		if article.PublishedAt.IsZero() {
 			t.Error("HTML articles should have fallback publication date")
 		}
-		
+
 		if fallback, exists := article.GetMetadata("date_fallback"); !exists || fallback != "true" {
 			t.Error("Date fallback marker should be set for HTML articles")
 		}
@@ -913,7 +913,7 @@ func TestSourceSpecificProcessing(t *testing.T) {
 
 func TestSourceSpecificHelperMethods(t *testing.T) {
 	converter := NewDefaultConverter()
-	
+
 	t.Run("extractFirstParagraph", func(t *testing.T) {
 		testCases := []struct {
 			name     string
@@ -936,7 +936,7 @@ func TestSourceSpecificHelperMethods(t *testing.T) {
 				expected: "",
 			},
 		}
-		
+
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				result := converter.extractFirstParagraph(tc.content)
@@ -946,7 +946,7 @@ func TestSourceSpecificHelperMethods(t *testing.T) {
 			})
 		}
 	})
-	
+
 	t.Run("extractArticleTitleFromHTML", func(t *testing.T) {
 		testCases := []struct {
 			name     string
@@ -959,7 +959,7 @@ func TestSourceSpecificHelperMethods(t *testing.T) {
 				expected: "Article Title",
 			},
 			{
-				name:     "dash_separator", 
+				name:     "dash_separator",
 				title:    "Article Title - Site Name",
 				expected: "Article Title",
 			},
@@ -974,7 +974,7 @@ func TestSourceSpecificHelperMethods(t *testing.T) {
 				expected: "Main Title",
 			},
 		}
-		
+
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				result := converter.extractArticleTitleFromHTML(tc.title)
@@ -984,7 +984,7 @@ func TestSourceSpecificHelperMethods(t *testing.T) {
 			})
 		}
 	})
-	
+
 	t.Run("cleanHTMLContent", func(t *testing.T) {
 		content := `
 			<nav class="navigation">Navigation Menu</nav>
@@ -992,9 +992,9 @@ func TestSourceSpecificHelperMethods(t *testing.T) {
 			<aside>Sidebar content</aside>
 			<footer>Footer content</footer>
 		`
-		
+
 		result := converter.cleanHTMLContent(content)
-		
+
 		if strings.Contains(result, "Navigation Menu") {
 			t.Error("Navigation should be removed")
 		}

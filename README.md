@@ -65,7 +65,7 @@ make run-dev
 
 # Or build and run
 make build
-./bin/frontend-news-mcp
+./bin/github.com/ZephyrDeng/dev-context
 ```
 
 ## 🛠 MCP Tools

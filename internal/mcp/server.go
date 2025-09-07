@@ -20,7 +20,7 @@ type Config struct {
 // DefaultConfig returns a default configuration for the MCP server
 func DefaultConfig() *Config {
 	return &Config{
-		Name:        "frontend-news-mcp",
+		Name:        "github.com/ZephyrDeng/dev-context",
 		Version:     "v0.1.0",
 		Description: "Real-time frontend news MCP server",
 		LogLevel:    slog.LevelInfo,
@@ -83,7 +83,7 @@ func (s *Server) RunStdio(ctx context.Context) error {
 
 // Close gracefully shuts down the server
 func (s *Server) Close() error {
-	// The MCP SDK server doesn't expose a Close method yet, 
+	// The MCP SDK server doesn't expose a Close method yet,
 	// but we prepare for graceful shutdown here
 	log.Printf("Shutting down MCP server %s", s.config.Name)
 	return nil

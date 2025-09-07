@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // TermFrequency represents the frequency of a term in a document
@@ -34,10 +34,10 @@ type TFIDFScore struct {
 
 // KeywordMatcher handles keyword matching with weighted scoring
 type KeywordMatcher struct {
-	Keywords       []string          `json:"keywords"`
-	WeightConfig   WeightConfig      `json:"weightConfig"`
-	stopWords      map[string]bool   // Common words to ignore
-	stemmer        *SimpleStemmer    // Simple stemming for better matching
+	Keywords     []string        `json:"keywords"`
+	WeightConfig WeightConfig    `json:"weightConfig"`
+	stopWords    map[string]bool // Common words to ignore
+	stemmer      *SimpleStemmer  // Simple stemming for better matching
 }
 
 // WeightConfig defines scoring weights for different text sections
@@ -104,7 +104,7 @@ func createStopWords() map[string]bool {
 		"has", "he", "in", "is", "it", "its", "of", "on", "that", "the",
 		"to", "was", "will", "with", "or", "but", "not", "this", "have",
 	}
-	
+
 	stopWordsMap := make(map[string]bool)
 	for _, word := range stopWords {
 		stopWordsMap[word] = true
@@ -160,7 +160,7 @@ func (rs *RelevanceScorer) calculateTFIDFScore(article *models.Article) float64 
 
 	// Get term frequencies for the article
 	termFreqs := rs.calculateTermFrequencies(article)
-	
+
 	totalScore := 0.0
 	totalWeight := 0.0
 
@@ -171,14 +171,14 @@ func (rs *RelevanceScorer) calculateTFIDFScore(article *models.Article) float64 
 
 		// Find TF for this keyword (or its variants)
 		tf := rs.findTermFrequency(termFreqs, []string{normalizedKeyword, stemmedKeyword})
-		
+
 		if tf > 0 {
 			// Calculate IDF
 			idf := rs.calculateIDF(stemmedKeyword)
-			
+
 			// Calculate TF-IDF score
 			tfidf := tf * idf
-			
+
 			// Apply weight based on keyword importance (can be enhanced)
 			weight := 1.0
 			totalScore += tfidf * weight
@@ -192,10 +192,10 @@ func (rs *RelevanceScorer) calculateTFIDFScore(article *models.Article) float64 
 
 	// Normalize by total weight and scale to [0, 1]
 	avgScore := totalScore / totalWeight
-	
+
 	// Apply sigmoid normalization to prevent extreme values
-	normalizedScore := 2.0 / (1.0 + math.Exp(-avgScore)) - 1.0
-	
+	normalizedScore := 2.0/(1.0+math.Exp(-avgScore)) - 1.0
+
 	return math.Max(0.0, math.Min(1.0, normalizedScore))
 }
 
@@ -207,22 +207,22 @@ func (rs *RelevanceScorer) calculateTermFrequencies(article *models.Article) []T
 
 	// Combine all text content with appropriate weights
 	fullText := ""
-	
+
 	// Title (higher weight by repeating)
 	if article.Title != "" {
 		fullText += strings.Repeat(article.Title+" ", 3)
 	}
-	
+
 	// Summary (medium weight)
 	if article.Summary != "" {
 		fullText += strings.Repeat(article.Summary+" ", 2)
 	}
-	
+
 	// Content (base weight)
 	if article.Content != "" {
 		fullText += article.Content + " "
 	}
-	
+
 	// Tags (highest weight)
 	for _, tag := range article.Tags {
 		fullText += strings.Repeat(tag+" ", 4)
@@ -259,7 +259,7 @@ func (rs *RelevanceScorer) calculateTermFrequencies(article *models.Article) []T
 
 	// Cache the result
 	rs.tfCache[article.ID] = termFreqs
-	
+
 	return termFreqs
 }
 
@@ -292,7 +292,7 @@ func (rs *RelevanceScorer) calculateIDF(term string) float64 {
 
 	// Cache the result
 	rs.idfCache[term] = idf
-	
+
 	return idf
 }
 
@@ -301,14 +301,14 @@ func (rs *RelevanceScorer) articleContainsTerm(article *models.Article, term str
 	// Check in all text fields
 	texts := []string{article.Title, article.Summary, article.Content}
 	texts = append(texts, article.Tags...)
-	
+
 	for _, text := range texts {
 		if text != "" {
 			normalizedText := strings.ToLower(text)
 			if strings.Contains(normalizedText, term) {
 				return true
 			}
-			
+
 			// Also check stemmed versions
 			words := rs.keywordMatcher.tokenizeText(normalizedText)
 			for _, word := range words {
@@ -318,7 +318,7 @@ func (rs *RelevanceScorer) articleContainsTerm(article *models.Article, term str
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -346,7 +346,7 @@ func (km *KeywordMatcher) ScoreKeywordMatch(article *models.Article) float64 {
 	for _, keyword := range km.Keywords {
 		keywordScore := km.scoreKeywordInArticle(article, keyword)
 		totalScore += keywordScore
-		
+
 		// Calculate max possible score for this keyword
 		maxPossibleScore += km.WeightConfig.TitleWeight * km.WeightConfig.ExactMatch
 	}
@@ -357,7 +357,7 @@ func (km *KeywordMatcher) ScoreKeywordMatch(article *models.Article) float64 {
 
 	// Normalize to [0, 1]
 	normalizedScore := totalScore / maxPossibleScore
-	
+
 	return math.Min(1.0, normalizedScore)
 }
 
@@ -396,7 +396,7 @@ func (km *KeywordMatcher) scoreTextMatch(text, keyword string) float64 {
 	}
 
 	normalizedText := strings.ToLower(text)
-	
+
 	// Exact phrase match (highest score)
 	if strings.Contains(normalizedText, keyword) {
 		return km.WeightConfig.ExactMatch
@@ -405,16 +405,16 @@ func (km *KeywordMatcher) scoreTextMatch(text, keyword string) float64 {
 	// Partial word matching
 	words := km.tokenizeText(normalizedText)
 	keywordWords := km.tokenizeText(keyword)
-	
+
 	matchCount := 0.0
 	totalKeywordWords := float64(len(keywordWords))
 
 	for _, keywordWord := range keywordWords {
 		stemmedKeyword := km.stemmer.Stem(keywordWord)
-		
+
 		for _, textWord := range words {
 			stemmedText := km.stemmer.Stem(textWord)
-			
+
 			if stemmedText == stemmedKeyword {
 				matchCount += 1.0
 				break
@@ -440,10 +440,10 @@ func (km *KeywordMatcher) scoreTagMatch(tags []string, keyword string) float64 {
 	}
 
 	bestScore := 0.0
-	
+
 	for _, tag := range tags {
 		normalizedTag := strings.ToLower(strings.TrimSpace(tag))
-		
+
 		// Exact tag match
 		if normalizedTag == keyword {
 			bestScore = math.Max(bestScore, km.WeightConfig.ExactMatch)
@@ -453,9 +453,9 @@ func (km *KeywordMatcher) scoreTagMatch(tags []string, keyword string) float64 {
 			// Stemmed comparison
 			stemmedTag := km.stemmer.Stem(normalizedTag)
 			stemmedKeyword := km.stemmer.Stem(keyword)
-			
+
 			if stemmedTag == stemmedKeyword {
-				bestScore = math.Max(bestScore, km.WeightConfig.ExactMatch * 0.9)
+				bestScore = math.Max(bestScore, km.WeightConfig.ExactMatch*0.9)
 			}
 		}
 	}
@@ -468,7 +468,7 @@ func (km *KeywordMatcher) tokenizeText(text string) []string {
 	// Use regex to split on non-letter characters
 	re := regexp.MustCompile(`[^\p{L}]+`)
 	words := re.Split(text, -1)
-	
+
 	var result []string
 	for _, word := range words {
 		word = strings.TrimSpace(word)
@@ -476,7 +476,7 @@ func (km *KeywordMatcher) tokenizeText(text string) []string {
 			result = append(result, strings.ToLower(word))
 		}
 	}
-	
+
 	return result
 }
 
@@ -484,10 +484,10 @@ func (km *KeywordMatcher) tokenizeText(text string) []string {
 func (rs *RelevanceScorer) normalizeText(text string) string {
 	// Convert to lowercase
 	text = strings.ToLower(text)
-	
+
 	// Remove extra whitespace
 	text = strings.TrimSpace(text)
-	
+
 	// Remove non-letter characters for better matching
 	var result strings.Builder
 	for _, r := range text {
@@ -495,7 +495,7 @@ func (rs *RelevanceScorer) normalizeText(text string) string {
 			result.WriteRune(r)
 		}
 	}
-	
+
 	return strings.TrimSpace(result.String())
 }
 
@@ -506,14 +506,14 @@ func (ss *SimpleStemmer) Stem(word string) string {
 	}
 
 	word = strings.ToLower(strings.TrimSpace(word))
-	
+
 	// Apply suffix removal
 	for _, suffix := range ss.suffixes {
 		if strings.HasSuffix(word, suffix) && len(word) > len(suffix)+2 {
 			return word[:len(word)-len(suffix)]
 		}
 	}
-	
+
 	return word
 }
 
@@ -549,10 +549,10 @@ func (rs *RelevanceScorer) ClearCache() {
 // GetTopTerms returns the top N terms for an article based on TF-IDF
 func (rs *RelevanceScorer) GetTopTerms(article *models.Article, n int) []TermFrequency {
 	termFreqs := rs.calculateTermFrequencies(article)
-	
+
 	if len(termFreqs) <= n {
 		return termFreqs
 	}
-	
+
 	return termFreqs[:n]
 }

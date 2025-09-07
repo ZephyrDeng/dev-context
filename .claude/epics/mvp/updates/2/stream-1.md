@@ -49,7 +49,7 @@ go build ./cmd/server  # 成功构建
 === RUN   TestServerGetters         --- PASS
 === RUN   TestServerClose           --- PASS
 === RUN   TestMCPServerCreation     --- PASS
-PASS	frontend-news-mcp/internal/mcp	0.162s
+PASS	github.com/ZephyrDeng/dev-context/internal/mcp	0.162s
 ```
 
 ## 输出成果

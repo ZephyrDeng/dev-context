@@ -1,4 +1,4 @@
-module frontend-news-mcp
+module github.com/ZephyrDeng/dev-context
 
 go 1.24.4
 

@@ -36,7 +36,7 @@ completed: 2025-09-07T07:25:30Z
 import "github.com/modelcontextprotocol/go-sdk/mcp"
 
 server := mcp.NewServer(&mcp.Implementation{
-    Name: "frontend-news-mcp",
+    Name: "github.com/ZephyrDeng/dev-context",
     Version: "v0.1.0",
 }, nil)
 ```

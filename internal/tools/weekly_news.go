@@ -9,39 +9,39 @@ import (
 	"sync"
 	"time"
 
-	"frontend-news-mcp/internal/cache"
-	"frontend-news-mcp/internal/collector"
-	"frontend-news-mcp/internal/formatter"
-	"frontend-news-mcp/internal/models"
-	"frontend-news-mcp/internal/processor"
+	"github.com/ZephyrDeng/dev-context/internal/cache"
+	"github.com/ZephyrDeng/dev-context/internal/collector"
+	"github.com/ZephyrDeng/dev-context/internal/formatter"
+	"github.com/ZephyrDeng/dev-context/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/processor"
 )
 
 // WeeklyNewsParams 周报新闻参数
 type WeeklyNewsParams struct {
 	// StartDate 开始日期 (可选，默认为7天前)
 	StartDate string `json:"startDate,omitempty"`
-	
+
 	// EndDate 结束日期 (可选，默认为今天)
 	EndDate string `json:"endDate,omitempty"`
-	
+
 	// Category 新闻分类过滤 (可选: react, vue, angular, nodejs, typescript, etc.)
 	Category string `json:"category,omitempty"`
-	
+
 	// MinQuality 最小质量分数 (0.0-1.0，默认0.5)
 	MinQuality float64 `json:"minQuality,omitempty"`
-	
+
 	// MaxResults 最大返回结果数 (默认50，最大200)
 	MaxResults int `json:"maxResults,omitempty"`
-	
+
 	// Format 输出格式 (json, markdown, text)
 	Format string `json:"format,omitempty"`
-	
+
 	// IncludeContent 是否包含完整内容 (默认false，只返回摘要)
 	IncludeContent bool `json:"includeContent,omitempty"`
-	
+
 	// SortBy 排序方式 (relevance, quality, date, title)
 	SortBy string `json:"sortBy,omitempty"`
-	
+
 	// Sources 指定的数据源 (可选，多个用逗号分隔)
 	Sources string `json:"sources,omitempty"`
 }
@@ -49,11 +49,11 @@ type WeeklyNewsParams struct {
 // WeeklyNewsResult 周报新闻结果
 type WeeklyNewsResult struct {
 	Articles    []models.Article `json:"articles"`
-	Summary     string          `json:"summary"`
-	Period      Period          `json:"period"`
-	TotalCount  int             `json:"totalCount"`
-	FilterCount int             `json:"filterCount"`
-	Sources     []SourceInfo    `json:"sources"`
+	Summary     string           `json:"summary"`
+	Period      Period           `json:"period"`
+	TotalCount  int              `json:"totalCount"`
+	FilterCount int              `json:"filterCount"`
+	Sources     []SourceInfo     `json:"sources"`
 }
 
 // Period 时间范围信息
@@ -72,11 +72,11 @@ type SourceInfo struct {
 
 // WeeklyNewsService 周报新闻服务
 type WeeklyNewsService struct {
-	cacheManager    *cache.CacheManager
-	collectorMgr    *collector.CollectorManager
-	processor       *processor.Processor
+	cacheManager     *cache.CacheManager
+	collectorMgr     *collector.CollectorManager
+	processor        *processor.Processor
 	formatterFactory *formatter.FormatterFactory
-	mu              sync.RWMutex
+	mu               sync.RWMutex
 }
 
 // NewWeeklyNewsService 创建周报新闻服务
@@ -87,9 +87,9 @@ func NewWeeklyNewsService(
 	formatterFactory *formatter.FormatterFactory,
 ) *WeeklyNewsService {
 	return &WeeklyNewsService{
-		cacheManager:    cacheManager,
-		collectorMgr:    collectorMgr,
-		processor:       processor,
+		cacheManager:     cacheManager,
+		collectorMgr:     collectorMgr,
+		processor:        processor,
 		formatterFactory: formatterFactory,
 	}
 }
@@ -100,16 +100,16 @@ func (w *WeeklyNewsService) GetWeeklyFrontendNews(ctx context.Context, params We
 	if err := w.validateParams(&params); err != nil {
 		return nil, fmt.Errorf("参数验证失败: %w", err)
 	}
-	
+
 	// 2. 解析时间范围
 	period, err := w.parsePeriod(params.StartDate, params.EndDate)
 	if err != nil {
 		return nil, fmt.Errorf("时间范围解析失败: %w", err)
 	}
-	
+
 	// 3. 生成缓存键
 	cacheKey := w.generateCacheKey(params, period)
-	
+
 	// 4. 检查缓存
 	if cached, found := w.cacheManager.Get(cacheKey); found {
 		if result, ok := cached.(*WeeklyNewsResult); ok {
@@ -117,19 +117,19 @@ func (w *WeeklyNewsService) GetWeeklyFrontendNews(ctx context.Context, params We
 			return result, nil
 		}
 	}
-	
+
 	// 5. 并发收集数据
 	articles, err := w.collectArticles(ctx, period, params)
 	if err != nil {
 		return nil, fmt.Errorf("数据收集失败: %w", err)
 	}
-	
+
 	// 6. 处理和过滤数据
 	filteredArticles, err := w.processAndFilter(articles, params, period)
 	if err != nil {
 		return nil, fmt.Errorf("数据处理失败: %w", err)
 	}
-	
+
 	// 7. 构建结果
 	result := &WeeklyNewsResult{
 		Articles:    filteredArticles,
@@ -139,13 +139,13 @@ func (w *WeeklyNewsService) GetWeeklyFrontendNews(ctx context.Context, params We
 		Sources:     w.calculateSourceInfo(articles),
 		Summary:     w.generateSummary(filteredArticles, period),
 	}
-	
+
 	// 8. 缓存结果 (缓存1小时)
 	w.cacheManager.SetWithTTL(cacheKey, result, time.Hour)
-	
-	log.Printf("成功获取周报新闻 %d 篇，期间: %s 到 %s", 
+
+	log.Printf("成功获取周报新闻 %d 篇，期间: %s 到 %s",
 		len(filteredArticles), period.Start.Format("2006-01-02"), period.End.Format("2006-01-02"))
-	
+
 	return result, nil
 }
 
@@ -164,7 +164,7 @@ func (w *WeeklyNewsService) validateParams(params *WeeklyNewsParams) error {
 	if params.SortBy == "" {
 		params.SortBy = "relevance"
 	}
-	
+
 	// 验证范围
 	if params.MinQuality < 0 || params.MinQuality > 1 {
 		return fmt.Errorf("minQuality 必须在 0.0-1.0 之间")
@@ -172,19 +172,19 @@ func (w *WeeklyNewsService) validateParams(params *WeeklyNewsParams) error {
 	if params.MaxResults < 1 || params.MaxResults > 200 {
 		return fmt.Errorf("maxResults 必须在 1-200 之间")
 	}
-	
+
 	// 验证格式
 	validFormats := []string{"json", "markdown", "text"}
 	if !contains(validFormats, params.Format) {
 		return fmt.Errorf("format 必须是: %v 中的一个", validFormats)
 	}
-	
+
 	// 验证排序方式
 	validSortBy := []string{"relevance", "quality", "date", "title"}
 	if !contains(validSortBy, params.SortBy) {
 		return fmt.Errorf("sortBy 必须是: %v 中的一个", validSortBy)
 	}
-	
+
 	return nil
 }
 
@@ -192,7 +192,7 @@ func (w *WeeklyNewsService) validateParams(params *WeeklyNewsParams) error {
 func (w *WeeklyNewsService) parsePeriod(startDate, endDate string) (*Period, error) {
 	var start, end time.Time
 	var err error
-	
+
 	// 解析结束日期
 	if endDate == "" {
 		end = time.Now()
@@ -202,7 +202,7 @@ func (w *WeeklyNewsService) parsePeriod(startDate, endDate string) (*Period, err
 			return nil, fmt.Errorf("endDate 格式错误，应为 YYYY-MM-DD: %w", err)
 		}
 	}
-	
+
 	// 解析开始日期
 	if startDate == "" {
 		start = end.AddDate(0, 0, -7) // 默认7天前
@@ -212,17 +212,17 @@ func (w *WeeklyNewsService) parsePeriod(startDate, endDate string) (*Period, err
 			return nil, fmt.Errorf("startDate 格式错误，应为 YYYY-MM-DD: %w", err)
 		}
 	}
-	
+
 	// 验证日期范围
 	if start.After(end) {
 		return nil, fmt.Errorf("startDate 不能晚于 endDate")
 	}
-	
+
 	days := int(end.Sub(start).Hours() / 24)
 	if days > 30 {
 		return nil, fmt.Errorf("时间范围不能超过30天")
 	}
-	
+
 	return &Period{
 		Start: start,
 		End:   end,
@@ -247,16 +247,16 @@ func (w *WeeklyNewsService) generateCacheKey(params WeeklyNewsParams, period *Pe
 func (w *WeeklyNewsService) collectArticles(ctx context.Context, period *Period, params WeeklyNewsParams) ([]models.Article, error) {
 	// 定义前端开发相关的数据源配置
 	configs := w.getFrontendCollectConfigs(period, params.Sources)
-	
+
 	log.Printf("开始收集前端新闻数据，配置数量: %d", len(configs))
-	
+
 	// 使用collector管理器并发收集数据
 	results := (*w.collectorMgr).CollectAll(ctx, configs)
-	
+
 	// 聚合所有文章
 	var articles []models.Article
 	var errors []error
-	
+
 	for _, result := range results {
 		if result.Error != nil {
 			errors = append(errors, result.Error)
@@ -270,15 +270,15 @@ func (w *WeeklyNewsService) collectArticles(ctx context.Context, period *Period,
 			log.Printf("从 %s 收集到 %d 篇文章", result.Source, len(result.Articles))
 		}
 	}
-	
+
 	// 如果所有数据源都失败了，返回错误
 	if len(articles) == 0 && len(errors) > 0 {
 		return nil, fmt.Errorf("所有数据源收集失败: %v", errors)
 	}
-	
+
 	// 去重
 	uniqueArticles := w.deduplicateArticles(articles)
-	
+
 	log.Printf("收集到 %d 篇文章，去重后 %d 篇", len(articles), len(uniqueArticles))
 	return uniqueArticles, nil
 }
@@ -286,11 +286,11 @@ func (w *WeeklyNewsService) collectArticles(ctx context.Context, period *Period,
 // getFrontendCollectConfigs 获取前端相关数据源配置
 func (w *WeeklyNewsService) getFrontendCollectConfigs(period *Period, sources string) []collector.CollectConfig {
 	var configs []collector.CollectConfig
-	
+
 	// 基础前端新闻源
 	frontendSources := map[string]collector.CollectConfig{
 		"dev.to": {
-			URL:         "https://dev.to/api/articles?tag=frontend&per_page=30",
+			URL: "https://dev.to/api/articles?tag=frontend&per_page=30",
 			Headers: map[string]string{
 				"User-Agent": "FrontendNews-MCP/1.0",
 				"Accept":     "application/json",
@@ -303,7 +303,7 @@ func (w *WeeklyNewsService) getFrontendCollectConfigs(period *Period, sources st
 			},
 		},
 		"dev.to-react": {
-			URL:         "https://dev.to/api/articles?tag=react&per_page=20",
+			URL: "https://dev.to/api/articles?tag=react&per_page=20",
 			Headers: map[string]string{
 				"User-Agent": "FrontendNews-MCP/1.0",
 				"Accept":     "application/json",
@@ -316,7 +316,7 @@ func (w *WeeklyNewsService) getFrontendCollectConfigs(period *Period, sources st
 			},
 		},
 		"dev.to-vue": {
-			URL:         "https://dev.to/api/articles?tag=vue&per_page=20",
+			URL: "https://dev.to/api/articles?tag=vue&per_page=20",
 			Headers: map[string]string{
 				"User-Agent": "FrontendNews-MCP/1.0",
 				"Accept":     "application/json",
@@ -329,7 +329,7 @@ func (w *WeeklyNewsService) getFrontendCollectConfigs(period *Period, sources st
 			},
 		},
 		"dev.to-javascript": {
-			URL:         "https://dev.to/api/articles?tag=javascript&per_page=25",
+			URL: "https://dev.to/api/articles?tag=javascript&per_page=25",
 			Headers: map[string]string{
 				"User-Agent": "FrontendNews-MCP/1.0",
 				"Accept":     "application/json",
@@ -342,7 +342,7 @@ func (w *WeeklyNewsService) getFrontendCollectConfigs(period *Period, sources st
 			},
 		},
 	}
-	
+
 	// 如果指定了特定数据源
 	if sources != "" {
 		sourceList := splitAndTrim(sources, ",")
@@ -357,7 +357,7 @@ func (w *WeeklyNewsService) getFrontendCollectConfigs(period *Period, sources st
 			configs = append(configs, config)
 		}
 	}
-	
+
 	log.Printf("配置了 %d 个数据源进行采集", len(configs))
 	return configs
 }
@@ -365,42 +365,42 @@ func (w *WeeklyNewsService) getFrontendCollectConfigs(period *Period, sources st
 // processAndFilter 处理和过滤数据
 func (w *WeeklyNewsService) processAndFilter(articles []models.Article, params WeeklyNewsParams, period *Period) ([]models.Article, error) {
 	var filtered []models.Article
-	
+
 	for _, article := range articles {
 		// 时间范围过滤
 		if !article.PublishedAt.After(period.Start.Add(-time.Hour)) || !article.PublishedAt.Before(period.End.Add(time.Hour)) {
 			continue
 		}
-		
+
 		// 质量分数过滤
 		if article.Quality < params.MinQuality {
 			continue
 		}
-		
+
 		// 分类过滤
 		if params.Category != "" && !w.matchesCategory(article, params.Category) {
 			continue
 		}
-		
+
 		// 计算相关性分数
 		if w.processor != nil {
 			article.Relevance = w.processor.CalculateFrontendRelevance(article, params.Category)
 		}
-		
+
 		// 更新质量分数
 		article.UpdateQuality()
-		
+
 		filtered = append(filtered, article)
 	}
-	
+
 	// 排序
 	w.sortArticles(filtered, params.SortBy)
-	
+
 	// 限制数量
 	if len(filtered) > params.MaxResults {
 		filtered = filtered[:params.MaxResults]
 	}
-	
+
 	return filtered, nil
 }
 
@@ -412,17 +412,17 @@ func (w *WeeklyNewsService) matchesCategory(article models.Article, category str
 			return true
 		}
 	}
-	
+
 	// 检查标题和摘要中的关键词
 	categoryKeywords := w.getCategoryKeywords(category)
 	content := article.Title + " " + article.Summary
-	
+
 	for _, keyword := range categoryKeywords {
 		if contains([]string{content}, keyword) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -439,11 +439,11 @@ func (w *WeeklyNewsService) getCategoryKeywords(category string) []string {
 		"testing":    {"test", "testing", "jest", "cypress", "playwright"},
 		"webpack":    {"webpack", "vite", "rollup", "bundler", "build"},
 	}
-	
+
 	if words, exists := keywords[category]; exists {
 		return words
 	}
-	
+
 	return []string{category}
 }
 
@@ -469,7 +469,7 @@ func (w *WeeklyNewsService) sortArticles(articles []models.Article, sortBy strin
 func (w *WeeklyNewsService) deduplicateArticles(articles []models.Article) []models.Article {
 	seen := make(map[string]bool)
 	var unique []models.Article
-	
+
 	for _, article := range articles {
 		hash := article.CalculateHash()
 		if !seen[hash] {
@@ -477,7 +477,7 @@ func (w *WeeklyNewsService) deduplicateArticles(articles []models.Article) []mod
 			unique = append(unique, article)
 		}
 	}
-	
+
 	return unique
 }
 
@@ -494,12 +494,12 @@ func (w *WeeklyNewsService) convertToModelArticle(collectorArticle collector.Art
 		Content:     collectorArticle.Content,
 		Tags:        collectorArticle.Tags,
 		// 默认质量分数和相关性分数
-		Quality:     0.5,
-		Relevance:   0.5,
+		Quality:   0.5,
+		Relevance: 0.5,
 		// 将map[string]string转换为map[string]interface{}
-		Metadata:    convertStringMapToInterface(collectorArticle.Metadata),
+		Metadata: convertStringMapToInterface(collectorArticle.Metadata),
 	}
-	
+
 	// 将Author和Language信息存储到Metadata中
 	if collectorArticle.Author != "" {
 		modelArticle.SetMetadata("author", collectorArticle.Author)
@@ -507,10 +507,10 @@ func (w *WeeklyNewsService) convertToModelArticle(collectorArticle collector.Art
 	if collectorArticle.Language != "" {
 		modelArticle.SetMetadata("language", collectorArticle.Language)
 	}
-	
+
 	// 更新质量分数
 	modelArticle.UpdateQuality()
-	
+
 	return modelArticle
 }
 
@@ -518,12 +518,12 @@ func (w *WeeklyNewsService) convertToModelArticle(collectorArticle collector.Art
 func (w *WeeklyNewsService) calculateSourceInfo(articles []models.Article) []SourceInfo {
 	sourceCount := make(map[string]int)
 	sourceType := make(map[string]string)
-	
+
 	for _, article := range articles {
 		sourceCount[article.Source]++
 		sourceType[article.Source] = article.SourceType
 	}
-	
+
 	var sources []SourceInfo
 	for source, count := range sourceCount {
 		sources = append(sources, SourceInfo{
@@ -532,12 +532,12 @@ func (w *WeeklyNewsService) calculateSourceInfo(articles []models.Article) []Sou
 			Type:  sourceType[source],
 		})
 	}
-	
+
 	// 按文章数量排序
 	sort.Slice(sources, func(i, j int) bool {
 		return sources[i].Count > sources[j].Count
 	})
-	
+
 	return sources
 }
 
@@ -547,7 +547,7 @@ func (w *WeeklyNewsService) generateSummary(articles []models.Article, period *P
 		return fmt.Sprintf("在 %s 到 %s 期间未找到符合条件的前端开发新闻。",
 			period.Start.Format("2006-01-02"), period.End.Format("2006-01-02"))
 	}
-	
+
 	// 分析主要话题
 	topicCount := make(map[string]int)
 	for _, article := range articles {
@@ -555,21 +555,21 @@ func (w *WeeklyNewsService) generateSummary(articles []models.Article, period *P
 			topicCount[tag]++
 		}
 	}
-	
+
 	var topTopics []string
 	for topic, count := range topicCount {
 		if count >= 2 && len(topTopics) < 5 {
 			topTopics = append(topTopics, topic)
 		}
 	}
-	
+
 	summary := fmt.Sprintf("在 %s 到 %s 期间，共收集到 %d 篇高质量前端开发新闻。",
 		period.Start.Format("2006-01-02"), period.End.Format("2006-01-02"), len(articles))
-	
+
 	if len(topTopics) > 0 {
 		summary += fmt.Sprintf(" 主要涉及话题：%s。", joinStrings(topTopics, "、"))
 	}
-	
+
 	return summary
 }
 
@@ -580,15 +580,15 @@ func (w *WeeklyNewsService) FormatResult(result *WeeklyNewsResult, format string
 	config.Format = formatter.OutputFormat(format)
 	config.IncludeMetadata = true
 	config.MaxSummaryLength = 200
-	
+
 	w.formatterFactory.UpdateConfig(config)
-	
+
 	// 创建格式化器
 	fmt, err := w.formatterFactory.CreateFormatter()
 	if err != nil {
 		return "", err
 	}
-	
+
 	// 格式化文章
 	return fmt.FormatArticles(result.Articles)
 }

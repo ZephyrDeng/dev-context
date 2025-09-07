@@ -10,7 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // SentenceScore represents a sentence with its calculated importance score
@@ -195,7 +195,7 @@ func (s *Summarizer) cleanText(text string) string {
 	// Remove script and style content
 	scriptRegex := regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`)
 	text = scriptRegex.ReplaceAllString(text, "")
-	
+
 	styleRegex := regexp.MustCompile(`(?i)<style[^>]*>.*?</style>`)
 	text = styleRegex.ReplaceAllString(text, "")
 
@@ -290,7 +290,7 @@ func (s *Summarizer) calculateKeywordScore(sentence string, keywords map[string]
 
 	sentenceLower := strings.ToLower(sentence)
 	words := strings.Fields(sentenceLower)
-	
+
 	keywordCount := 0
 	for _, word := range words {
 		if _, exists := keywords[word]; exists {
@@ -304,7 +304,7 @@ func (s *Summarizer) calculateKeywordScore(sentence string, keywords map[string]
 
 	// Return keyword density ratio
 	density := float64(keywordCount) / float64(len(words))
-	
+
 	// Cap at 1.0 for very keyword-dense sentences
 	if density > 1.0 {
 		density = 1.0
@@ -407,7 +407,7 @@ func (s *Summarizer) adjustSummaryLength(summary string) string {
 	// Truncate at word boundary
 	words := strings.Fields(summary)
 	result := ""
-	
+
 	for _, word := range words {
 		testResult := result
 		if testResult != "" {
@@ -421,7 +421,7 @@ func (s *Summarizer) adjustSummaryLength(summary string) string {
 			}
 			break
 		}
-		
+
 		result = testResult
 	}
 
@@ -507,7 +507,7 @@ func (s *Summarizer) assessReadability(article *models.Article) float64 {
 func (s *Summarizer) assessRelevance(article *models.Article) float64 {
 	// This is a basic implementation - in a real system, this might compare
 	// against user interests, trending topics, etc.
-	
+
 	var score float64 = 0.5 // Base relevance score
 
 	// Boost score for articles with tags (indicates categorization)
@@ -547,14 +547,14 @@ func (s *Summarizer) calculateLengthVariety(sentences []string) float64 {
 
 	lengths := make([]int, len(sentences))
 	totalLength := 0
-	
+
 	for i, sentence := range sentences {
 		lengths[i] = len(strings.Fields(sentence))
 		totalLength += lengths[i]
 	}
 
 	avgLength := float64(totalLength) / float64(len(sentences))
-	
+
 	// Calculate variance
 	variance := 0.0
 	for _, length := range lengths {
@@ -566,6 +566,6 @@ func (s *Summarizer) calculateLengthVariety(sentences []string) float64 {
 	// Normalize variance to 0-1 scale (higher variance = more variety = better score)
 	// Use square root to moderate the effect
 	variety := math.Sqrt(variance) / avgLength
-	
+
 	return math.Min(variety, 1.0)
 }

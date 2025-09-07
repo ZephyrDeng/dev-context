@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // MarkdownFormatter implements the Markdown output format with readable layout and links
@@ -30,7 +30,7 @@ func (mf *MarkdownFormatter) FormatArticles(articles []models.Article) (string, 
 	}
 
 	var md strings.Builder
-	
+
 	// Header
 	md.WriteString("# Articles\n\n")
 	md.WriteString(fmt.Sprintf("*Generated on %s*\n\n", time.Now().Format(mf.config.DateFormat)))
@@ -58,7 +58,7 @@ func (mf *MarkdownFormatter) FormatRepositories(repositories []models.Repository
 	}
 
 	var md strings.Builder
-	
+
 	// Header
 	md.WriteString("# Repositories\n\n")
 	md.WriteString(fmt.Sprintf("*Generated on %s*\n\n", time.Now().Format(mf.config.DateFormat)))
@@ -82,17 +82,17 @@ func (mf *MarkdownFormatter) FormatRepositories(repositories []models.Repository
 // FormatMixed formats both articles and repositories in a unified Markdown output
 func (mf *MarkdownFormatter) FormatMixed(articles []models.Article, repositories []models.Repository) (string, error) {
 	var md strings.Builder
-	
+
 	// Header
 	md.WriteString("# Development Context Report\n\n")
 	md.WriteString(fmt.Sprintf("*Generated on %s*\n\n", time.Now().Format(mf.config.DateFormat)))
-	
+
 	// Summary
 	md.WriteString("## Summary\n\n")
 	md.WriteString(fmt.Sprintf("- **Articles:** %d\n", len(articles)))
 	md.WriteString(fmt.Sprintf("- **Repositories:** %d\n", len(repositories)))
 	md.WriteString(fmt.Sprintf("- **Total Items:** %d\n\n", len(articles)+len(repositories)))
-	
+
 	// Table of Contents
 	md.WriteString("## Table of Contents\n\n")
 	if len(articles) > 0 {
@@ -107,7 +107,7 @@ func (mf *MarkdownFormatter) FormatMixed(articles []models.Article, repositories
 	if len(articles) > 0 {
 		md.WriteString("## Articles\n\n")
 		sortedArticles := mf.sortArticles(articles)
-		
+
 		for i, article := range sortedArticles {
 			if i > 0 {
 				md.WriteString("\n---\n\n")
@@ -123,7 +123,7 @@ func (mf *MarkdownFormatter) FormatMixed(articles []models.Article, repositories
 		}
 		md.WriteString("## Repositories\n\n")
 		sortedRepos := mf.sortRepositories(repositories)
-		
+
 		for i, repo := range sortedRepos {
 			if i > 0 {
 				md.WriteString("\n---\n\n")
@@ -156,18 +156,18 @@ func (mf *MarkdownFormatter) formatSingleArticle(md *strings.Builder, article mo
 	md.WriteString(fmt.Sprintf("| **Source** | %s |\n", mf.escapeMarkdown(article.Source)))
 	md.WriteString(fmt.Sprintf("| **Type** | %s |\n", article.SourceType))
 	md.WriteString(fmt.Sprintf("| **Published** | %s |\n", formatTimestamp(article.PublishedAt, mf.config.DateFormat)))
-	
+
 	if article.Relevance > 0 {
 		md.WriteString(fmt.Sprintf("| **Relevance** | %.1f%% |\n", article.Relevance*100))
 	}
 	if article.Quality > 0 {
 		md.WriteString(fmt.Sprintf("| **Quality** | %.1f%% |\n", article.Quality*100))
 	}
-	
+
 	if !mf.config.EnableLinks && article.URL != "" {
 		md.WriteString(fmt.Sprintf("| **URL** | `%s` |\n", article.URL))
 	}
-	
+
 	md.WriteString("\n")
 
 	// Summary
@@ -228,20 +228,20 @@ func (mf *MarkdownFormatter) formatSingleRepository(md *strings.Builder, repo mo
 	// Metadata table
 	md.WriteString("| Field | Value |\n")
 	md.WriteString("|-------|-------|\n")
-	
+
 	if repo.Language != "" {
 		md.WriteString(fmt.Sprintf("| **Language** | %s |\n", mf.escapeMarkdown(repo.Language)))
 	}
-	
+
 	md.WriteString(fmt.Sprintf("| **Stars** | ⭐ %d |\n", repo.Stars))
 	md.WriteString(fmt.Sprintf("| **Forks** | 🍴 %d |\n", repo.Forks))
 	md.WriteString(fmt.Sprintf("| **Trend Score** | %.1f%% |\n", repo.TrendScore*100))
 	md.WriteString(fmt.Sprintf("| **Updated** | %s |\n", formatTimestamp(repo.UpdatedAt, mf.config.DateFormat)))
-	
+
 	if !mf.config.EnableLinks && repo.URL != "" {
 		md.WriteString(fmt.Sprintf("| **URL** | `%s` |\n", repo.URL))
 	}
-	
+
 	md.WriteString("\n")
 
 	// Description
@@ -256,7 +256,7 @@ func (mf *MarkdownFormatter) formatSingleRepository(md *strings.Builder, repo mo
 
 	// Repository stats (visual indicators)
 	md.WriteString("**Stats:**\n")
-	
+
 	// Popularity indicator
 	popularityTier := repo.GetPopularityTier()
 	switch popularityTier {
@@ -271,7 +271,7 @@ func (mf *MarkdownFormatter) formatSingleRepository(md *strings.Builder, repo mo
 	default:
 		md.WriteString("🌱 **New or Niche** repository\n")
 	}
-	
+
 	// Activity indicator
 	activityLevel := repo.GetActivityLevel()
 	switch activityLevel {
@@ -284,7 +284,7 @@ func (mf *MarkdownFormatter) formatSingleRepository(md *strings.Builder, repo mo
 	default:
 		md.WriteString("💤 **Inactive** - not recently updated\n")
 	}
-	
+
 	md.WriteString("\n")
 }
 
@@ -292,33 +292,33 @@ func (mf *MarkdownFormatter) formatSingleRepository(md *strings.Builder, repo mo
 func (mf *MarkdownFormatter) escapeMarkdown(text string) string {
 	// Escape HTML first to prevent XSS
 	text = html.EscapeString(text)
-	
+
 	// Escape common Markdown special characters
 	replacements := []struct {
 		old, new string
 	}{
-		{"\\", "\\\\"},  // Backslash (must be first)
-		{"*", "\\*"},    // Asterisk
-		{"_", "\\_"},    // Underscore
-		{"`", "\\`"},    // Backtick
-		{"[", "\\["},    // Square bracket
-		{"]", "\\]"},    // Square bracket
-		{"(", "\\("},    // Parenthesis
-		{")", "\\)"},    // Parenthesis
-		{"{", "\\{"},    // Curly brace
-		{"}", "\\}"},    // Curly brace
-		{"#", "\\#"},    // Hash
-		{"+", "\\+"},    // Plus
-		{"-", "\\-"},    // Minus
-		{".", "\\."},    // Dot
-		{"!", "\\!"},    // Exclamation
-		{"|", "\\|"},    // Pipe
+		{"\\", "\\\\"}, // Backslash (must be first)
+		{"*", "\\*"},   // Asterisk
+		{"_", "\\_"},   // Underscore
+		{"`", "\\`"},   // Backtick
+		{"[", "\\["},   // Square bracket
+		{"]", "\\]"},   // Square bracket
+		{"(", "\\("},   // Parenthesis
+		{")", "\\)"},   // Parenthesis
+		{"{", "\\{"},   // Curly brace
+		{"}", "\\}"},   // Curly brace
+		{"#", "\\#"},   // Hash
+		{"+", "\\+"},   // Plus
+		{"-", "\\-"},   // Minus
+		{".", "\\."},   // Dot
+		{"!", "\\!"},   // Exclamation
+		{"|", "\\|"},   // Pipe
 	}
-	
+
 	for _, r := range replacements {
 		text = strings.ReplaceAll(text, r.old, r.new)
 	}
-	
+
 	return text
 }
 

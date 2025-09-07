@@ -7,11 +7,11 @@ import (
 	"log"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	
-	"frontend-news-mcp/internal/cache"
-	"frontend-news-mcp/internal/collector"
-	"frontend-news-mcp/internal/formatter"
-	"frontend-news-mcp/internal/processor"
+
+	"github.com/ZephyrDeng/dev-context/internal/cache"
+	"github.com/ZephyrDeng/dev-context/internal/collector"
+	"github.com/ZephyrDeng/dev-context/internal/formatter"
+	"github.com/ZephyrDeng/dev-context/internal/processor"
 )
 
 // Handler MCP工具处理器，负责注册和处理所有MCP工具调用
@@ -40,25 +40,25 @@ func NewHandler(
 // RegisterTools 注册所有MCP工具到服务器
 func (h *Handler) RegisterTools(server *mcp.Server) error {
 	registeredCount := 0
-	
+
 	// 注册周报新闻工具
 	if err := h.registerWeeklyNewsTools(server); err != nil {
 		return fmt.Errorf("注册周报新闻工具失败: %w", err)
 	}
 	registeredCount++
-	
+
 	// 注册主题搜索工具
 	if err := h.registerTopicSearchTools(server); err != nil {
 		return fmt.Errorf("注册主题搜索工具失败: %w", err)
 	}
 	registeredCount++
-	
+
 	// 注册热门仓库工具
 	if err := h.registerTrendingReposTools(server); err != nil {
 		return fmt.Errorf("注册热门仓库工具失败: %w", err)
 	}
 	registeredCount++
-	
+
 	log.Printf("成功注册 %d 个MCP工具", registeredCount)
 	return nil
 }
@@ -67,15 +67,15 @@ func (h *Handler) RegisterTools(server *mcp.Server) error {
 func (h *Handler) registerWeeklyNewsTools(server *mcp.Server) error {
 	// 定义周报新闻工具参数
 	type WeeklyNewsArgs struct {
-		StartDate    string  `json:"startDate,omitempty" jsonschema:"Start date for news collection (YYYY-MM-DD format, optional)"`
-		EndDate      string  `json:"endDate,omitempty" jsonschema:"End date for news collection (YYYY-MM-DD format, optional)"`
-		Category     string  `json:"category,omitempty" jsonschema:"Technology category filter (react, vue, angular, etc.)"`
-		MinQuality   float64 `json:"minQuality,omitempty" jsonschema:"Minimum quality score 0.0-1.0"`
-		MaxResults   int     `json:"maxResults,omitempty" jsonschema:"Maximum results (default 50, max 200)"`
-		Format       string  `json:"format,omitempty" jsonschema:"Output format (json, markdown, text)"`
-		IncludeContent bool  `json:"includeContent,omitempty" jsonschema:"Include full content (default false)"`
-		SortBy       string  `json:"sortBy,omitempty" jsonschema:"Sort by (relevance, quality, date, title)"`
-		Sources      string  `json:"sources,omitempty" jsonschema:"Comma-separated list of sources"`
+		StartDate      string  `json:"startDate,omitempty" jsonschema:"Start date for news collection (YYYY-MM-DD format, optional)"`
+		EndDate        string  `json:"endDate,omitempty" jsonschema:"End date for news collection (YYYY-MM-DD format, optional)"`
+		Category       string  `json:"category,omitempty" jsonschema:"Technology category filter (react, vue, angular, etc.)"`
+		MinQuality     float64 `json:"minQuality,omitempty" jsonschema:"Minimum quality score 0.0-1.0"`
+		MaxResults     int     `json:"maxResults,omitempty" jsonschema:"Maximum results (default 50, max 200)"`
+		Format         string  `json:"format,omitempty" jsonschema:"Output format (json, markdown, text)"`
+		IncludeContent bool    `json:"includeContent,omitempty" jsonschema:"Include full content (default false)"`
+		SortBy         string  `json:"sortBy,omitempty" jsonschema:"Sort by (relevance, quality, date, title)"`
+		Sources        string  `json:"sources,omitempty" jsonschema:"Comma-separated list of sources"`
 	}
 
 	// 注册周报新闻工具
@@ -95,7 +95,7 @@ func (h *Handler) registerWeeklyNewsTools(server *mcp.Server) error {
 			SortBy:         args.SortBy,
 			Sources:        args.Sources,
 		}
-		
+
 		// 调用服务
 		result, err := h.weeklyNewsService.GetWeeklyFrontendNews(ctx, params)
 		if err != nil {
@@ -105,13 +105,13 @@ func (h *Handler) registerWeeklyNewsTools(server *mcp.Server) error {
 				},
 			}, nil, nil
 		}
-		
+
 		// 格式化输出
 		format := params.Format
 		if format == "" {
 			format = "json"
 		}
-		
+
 		var output string
 		switch format {
 		case "json":
@@ -169,7 +169,7 @@ func (h *Handler) registerTopicSearchTools(server *mcp.Server) error {
 				},
 			}, nil, nil
 		}
-		
+
 		// 转换参数
 		params := TopicSearchParams{
 			Query:       args.Query,
@@ -223,7 +223,7 @@ func (h *Handler) registerTopicSearchTools(server *mcp.Server) error {
 			},
 		}, nil, nil
 	})
-	
+
 	log.Printf("主题搜索工具注册成功")
 	return nil
 }
@@ -313,26 +313,26 @@ func (h *Handler) handleGetWeeklyFrontendNews(
 	req *mcp.CallToolRequest,
 	args WeeklyNewsParams,
 ) (*mcp.CallToolResult, any, error) {
-	log.Printf("处理 get_weekly_frontend_news 请求: category=%s, timeRange=%s-%s", 
+	log.Printf("处理 get_weekly_frontend_news 请求: category=%s, timeRange=%s-%s",
 		args.Category, args.StartDate, args.EndDate)
-	
+
 	// 参数验证
 	if err := h.validator.ValidateWeeklyNewsParams(args); err != nil {
 		return nil, nil, fmt.Errorf("参数验证失败: %w", err)
 	}
-	
+
 	// 调用服务
 	result, err := h.weeklyNewsService.GetWeeklyFrontendNews(ctx, args)
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取周报新闻失败: %w", err)
 	}
-	
+
 	// 格式化输出
 	format := args.Format
 	if format == "" {
 		format = "json"
 	}
-	
+
 	var content string
 	if format == "json" {
 		// JSON格式直接返回结构化数据
@@ -348,7 +348,7 @@ func (h *Handler) handleGetWeeklyFrontendNews(
 			return nil, nil, fmt.Errorf("格式化结果失败: %w", err)
 		}
 	}
-	
+
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			&mcp.TextContent{Text: content},
@@ -362,26 +362,26 @@ func (h *Handler) handleSearchFrontendTopic(
 	req *mcp.CallToolRequest,
 	args TopicSearchParams,
 ) (*mcp.CallToolResult, any, error) {
-	log.Printf("处理 search_frontend_topic 请求: query=%s, platform=%s", 
+	log.Printf("处理 search_frontend_topic 请求: query=%s, platform=%s",
 		args.Query, args.Platform)
-	
+
 	// 参数验证
 	if err := h.validator.ValidateTopicSearchParams(args); err != nil {
 		return nil, nil, fmt.Errorf("参数验证失败: %w", err)
 	}
-	
+
 	// 调用服务
 	result, err := h.topicSearchService.SearchFrontendTopic(ctx, args)
 	if err != nil {
 		return nil, nil, fmt.Errorf("搜索前端主题失败: %w", err)
 	}
-	
+
 	// 格式化输出
 	format := args.Format
 	if format == "" {
 		format = "json"
 	}
-	
+
 	var content string
 	if format == "json" {
 		// JSON格式直接返回结构化数据
@@ -397,14 +397,13 @@ func (h *Handler) handleSearchFrontendTopic(
 			return nil, nil, fmt.Errorf("格式化结果失败: %w", err)
 		}
 	}
-	
+
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			&mcp.TextContent{Text: content},
 		},
 	}, result, nil
 }
-
 
 // GetToolsInfo 获取工具信息列表
 func (h *Handler) GetToolsInfo() []ToolInfo {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // TestData for consistent testing
@@ -76,7 +76,7 @@ func TestNewRelevanceScorer(t *testing.T) {
 	if scorer.keywordMatcher.WeightConfig.TitleWeight != 3.0 {
 		t.Errorf("Expected TitleWeight 3.0, got %f", scorer.keywordMatcher.WeightConfig.TitleWeight)
 	}
-	
+
 	if scorer.keywordMatcher.WeightConfig.SummaryWeight != 2.0 {
 		t.Errorf("Expected SummaryWeight 2.0, got %f", scorer.keywordMatcher.WeightConfig.SummaryWeight)
 	}
@@ -84,7 +84,7 @@ func TestNewRelevanceScorer(t *testing.T) {
 
 func TestSimpleStemmer(t *testing.T) {
 	stemmer := NewSimpleStemmer()
-	
+
 	testCases := []struct {
 		word     string
 		expected string
@@ -109,7 +109,7 @@ func TestSimpleStemmer(t *testing.T) {
 func TestKeywordMatcherScoreKeywordMatch(t *testing.T) {
 	keywords := []string{"go", "programming"}
 	scorer := NewRelevanceScorer(keywords)
-	
+
 	article := testArticles[0] // Go Programming Language Tutorial
 	score := scorer.keywordMatcher.ScoreKeywordMatch(article)
 
@@ -174,7 +174,7 @@ func TestTermFrequencyCalculation(t *testing.T) {
 	// Check if important terms are captured
 	foundGo := false
 	foundProgramming := false
-	
+
 	for _, tf := range termFreqs {
 		if strings.Contains(tf.Term, "go") {
 			foundGo = true
@@ -194,7 +194,7 @@ func TestTermFrequencyCalculation(t *testing.T) {
 
 func TestIDFCalculation(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"go", "programming", "unique", "common"})
-	
+
 	// Create a more diverse corpus for better IDF testing
 	testCorpus := []*models.Article{
 		{ID: "1", Title: "Go programming tutorial", Content: "Go is a programming language", Tags: []string{"go", "programming"}},
@@ -202,15 +202,15 @@ func TestIDFCalculation(t *testing.T) {
 		{ID: "3", Title: "Python tutorial", Content: "Python is great for scripting", Tags: []string{"python"}},
 		{ID: "4", Title: "Database optimization", Content: "Optimize your database for better performance", Tags: []string{"database", "optimization"}},
 	}
-	
+
 	scorer.SetCorpus(testCorpus)
-	
+
 	// Test IDF for common term (appears in multiple documents)
 	programmingIDF := scorer.calculateIDF("programming")
-	
+
 	// Test IDF for term that doesn't exist
 	uniqueIDF := scorer.calculateIDF("unique")
-	
+
 	// IDF should be higher for rarer terms
 	if uniqueIDF <= programmingIDF {
 		t.Errorf("IDF for non-existent term should be higher: unique=%f, programming=%f", uniqueIDF, programmingIDF)
@@ -226,9 +226,9 @@ func TestIDFCalculation(t *testing.T) {
 func TestScoreRelevanceAccuracy(t *testing.T) {
 	// Test for >85% relevance scoring accuracy requirement
 	testCases := []struct {
-		keywords      []string
-		expectedHigh  []string // Article IDs that should score high
-		expectedLow   []string // Article IDs that should score low
+		keywords     []string
+		expectedHigh []string // Article IDs that should score high
+		expectedLow  []string // Article IDs that should score low
 	}{
 		{
 			keywords:     []string{"go", "programming"},
@@ -263,7 +263,7 @@ func TestScoreRelevanceAccuracy(t *testing.T) {
 		for _, expectedHighID := range tc.expectedHigh {
 			highScore := scores[expectedHighID]
 			correctlyRankedHigh := 0
-			
+
 			for _, expectedLowID := range tc.expectedLow {
 				lowScore := scores[expectedLowID]
 				if highScore > lowScore {
@@ -271,7 +271,7 @@ func TestScoreRelevanceAccuracy(t *testing.T) {
 				}
 				totalPredictions++
 			}
-			
+
 			correctPredictions += correctlyRankedHigh
 		}
 	}
@@ -286,7 +286,7 @@ func TestScoreRelevanceAccuracy(t *testing.T) {
 
 func TestWeightConfiguration(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"test"})
-	
+
 	// Test custom weight configuration
 	customConfig := WeightConfig{
 		TitleWeight:   5.0,
@@ -307,7 +307,7 @@ func TestWeightConfiguration(t *testing.T) {
 
 func TestUpdateKeywords(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"old", "keywords"})
-	
+
 	oldKeywords := scorer.GetKeywords()
 	if len(oldKeywords) != 2 {
 		t.Errorf("Expected 2 keywords initially, got %d", len(oldKeywords))
@@ -315,7 +315,7 @@ func TestUpdateKeywords(t *testing.T) {
 
 	newKeywords := []string{"new", "updated", "keywords"}
 	scorer.UpdateKeywords(newKeywords)
-	
+
 	updatedKeywords := scorer.GetKeywords()
 	if len(updatedKeywords) != len(newKeywords) {
 		t.Errorf("Expected %d keywords after update, got %d", len(newKeywords), len(updatedKeywords))
@@ -331,21 +331,21 @@ func TestUpdateKeywords(t *testing.T) {
 func TestClearCache(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"test"})
 	scorer.SetCorpus(testArticles)
-	
+
 	// Calculate some scores to populate cache
 	scorer.ScoreRelevance(testArticles[0])
-	
+
 	// Verify cache has entries
 	if len(scorer.tfCache) == 0 && len(scorer.idfCache) == 0 {
 		t.Skip("Cannot verify cache populated")
 	}
-	
+
 	scorer.ClearCache()
-	
+
 	if len(scorer.tfCache) != 0 {
 		t.Error("TF cache should be cleared")
 	}
-	
+
 	if len(scorer.idfCache) != 0 {
 		t.Error("IDF cache should be cleared")
 	}
@@ -354,18 +354,18 @@ func TestClearCache(t *testing.T) {
 func TestGetTopTerms(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"go", "programming"})
 	scorer.SetCorpus(testArticles)
-	
+
 	article := testArticles[0]
 	topTerms := scorer.GetTopTerms(article, 5)
-	
+
 	if len(topTerms) > 5 {
 		t.Errorf("Expected at most 5 terms, got %d", len(topTerms))
 	}
-	
+
 	if len(topTerms) == 0 {
 		t.Error("Expected at least some terms")
 	}
-	
+
 	// Verify terms are sorted by frequency
 	for i := 1; i < len(topTerms); i++ {
 		if topTerms[i-1].Frequency < topTerms[i].Frequency {
@@ -377,10 +377,10 @@ func TestGetTopTerms(t *testing.T) {
 func TestStopWordsFiltering(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"the", "and", "programming"}) // Include stop words
 	scorer.SetCorpus(testArticles)
-	
+
 	article := testArticles[0]
 	termFreqs := scorer.calculateTermFrequencies(article)
-	
+
 	// Check that common stop words are filtered out
 	stopWords := []string{"the", "and", "is", "a", "to"}
 	for _, stopWord := range stopWords {
@@ -394,7 +394,7 @@ func TestStopWordsFiltering(t *testing.T) {
 
 func TestNormalizeText(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"test"})
-	
+
 	testCases := []struct {
 		input    string
 		expected string
@@ -405,7 +405,7 @@ func TestNormalizeText(t *testing.T) {
 		{"", ""},
 		{"CamelCase", "camelcase"},
 	}
-	
+
 	for _, tc := range testCases {
 		result := scorer.normalizeText(tc.input)
 		if result != tc.expected {
@@ -418,16 +418,16 @@ func TestTokenizeText(t *testing.T) {
 	keywords := []string{"test"}
 	scorer := NewRelevanceScorer(keywords)
 	km := scorer.keywordMatcher
-	
+
 	text := "Hello, world! This is a test-case with various123 symbols."
 	tokens := km.tokenizeText(text)
-	
+
 	expected := []string{"hello", "world", "this", "is", "a", "test", "case", "with", "various", "symbols"}
-	
+
 	if len(tokens) != len(expected) {
 		t.Errorf("Expected %d tokens, got %d", len(expected), len(tokens))
 	}
-	
+
 	for i, token := range tokens {
 		if i < len(expected) && token != expected[i] {
 			t.Errorf("Expected token %q at position %d, got %q", expected[i], i, token)
@@ -439,24 +439,24 @@ func TestScoreTextMatch(t *testing.T) {
 	keywords := []string{"programming", "development"}
 	scorer := NewRelevanceScorer(keywords)
 	km := scorer.keywordMatcher
-	
+
 	// Test exact match
 	exactScore := km.scoreTextMatch("Go programming is great", "programming")
 	if exactScore <= 0 {
 		t.Error("Exact match should have positive score")
 	}
-	
+
 	// Test partial match
 	partialScore := km.scoreTextMatch("Go programmer writes code", "programming")
 	if partialScore <= 0 {
 		t.Error("Partial match should have positive score")
 	}
-	
+
 	// Exact match should score higher than partial match
 	if exactScore <= partialScore {
 		t.Errorf("Exact match should score higher: exact=%f, partial=%f", exactScore, partialScore)
 	}
-	
+
 	// Test no match
 	noMatchScore := km.scoreTextMatch("Completely unrelated text", "programming")
 	if noMatchScore > 0.1 {
@@ -468,26 +468,26 @@ func TestScoreTagMatch(t *testing.T) {
 	keywords := []string{"go", "programming"}
 	scorer := NewRelevanceScorer(keywords)
 	km := scorer.keywordMatcher
-	
+
 	// Test exact tag match
 	tags := []string{"go", "language", "tutorial"}
 	exactScore := km.scoreTagMatch(tags, "go")
 	if exactScore <= 0 {
 		t.Error("Exact tag match should have positive score")
 	}
-	
+
 	// Test partial tag match
 	partialScore := km.scoreTagMatch(tags, "lang")
 	if partialScore <= 0 {
 		t.Error("Partial tag match should have positive score")
 	}
-	
+
 	// Test no match
 	noMatchScore := km.scoreTagMatch(tags, "python")
 	if noMatchScore > 0 {
 		t.Errorf("No match should have zero score, got %f", noMatchScore)
 	}
-	
+
 	// Exact match should score higher than partial match
 	if exactScore <= partialScore {
 		t.Errorf("Exact tag match should score higher: exact=%f, partial=%f", exactScore, partialScore)
@@ -496,34 +496,34 @@ func TestScoreTagMatch(t *testing.T) {
 
 func TestArticleContainsTerm(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"test"})
-	
+
 	article := &models.Article{
 		Title:   "Go Programming Tutorial",
 		Summary: "Learn Go basics",
 		Content: "Go is a programming language",
 		Tags:    []string{"go", "programming"},
 	}
-	
+
 	// Test term in title
 	if !scorer.articleContainsTerm(article, "go") {
 		t.Error("Should find 'go' in article")
 	}
-	
+
 	// Test term in content
 	if !scorer.articleContainsTerm(article, "language") {
 		t.Error("Should find 'language' in article")
 	}
-	
+
 	// Test term in tags
 	if !scorer.articleContainsTerm(article, "programming") {
 		t.Error("Should find 'programming' in tags")
 	}
-	
+
 	// Test stemmed matching
 	if !scorer.articleContainsTerm(article, "programm") {
 		t.Error("Should find stemmed version of 'programming'")
 	}
-	
+
 	// Test non-existent term
 	if scorer.articleContainsTerm(article, "nonexistent") {
 		t.Error("Should not find non-existent term")
@@ -534,7 +534,7 @@ func BenchmarkScoreRelevance(b *testing.B) {
 	keywords := []string{"go", "programming", "javascript", "python"}
 	scorer := NewRelevanceScorer(keywords)
 	scorer.SetCorpus(testArticles)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		scorer.ScoreRelevance(testArticles[i%len(testArticles)])
@@ -544,7 +544,7 @@ func BenchmarkScoreRelevance(b *testing.B) {
 func BenchmarkCalculateTermFrequencies(b *testing.B) {
 	scorer := NewRelevanceScorer([]string{"test"})
 	article := testArticles[0]
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		scorer.calculateTermFrequencies(article)
@@ -555,7 +555,7 @@ func BenchmarkKeywordMatch(b *testing.B) {
 	keywords := []string{"go", "programming", "javascript"}
 	scorer := NewRelevanceScorer(keywords)
 	article := testArticles[0]
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		scorer.keywordMatcher.ScoreKeywordMatch(article)
@@ -567,7 +567,7 @@ func TestScorerIntegration(t *testing.T) {
 	// Setup a realistic scenario
 	keywords := []string{"machine learning", "python", "tensorflow"}
 	scorer := NewRelevanceScorer(keywords)
-	
+
 	// Create test corpus with varying relevance
 	articles := []*models.Article{
 		{
@@ -578,7 +578,7 @@ func TestScorerIntegration(t *testing.T) {
 			Tags:    []string{"machine-learning", "python", "tensorflow", "ai"},
 		},
 		{
-			ID:      "ml2", 
+			ID:      "ml2",
 			Title:   "JavaScript for Web Development",
 			Summary: "Building web applications with modern JavaScript",
 			Content: "JavaScript frameworks have transformed web development. React and Vue are popular choices.",
@@ -592,25 +592,25 @@ func TestScorerIntegration(t *testing.T) {
 			Tags:    []string{"python", "programming", "basics"},
 		},
 	}
-	
+
 	scorer.SetCorpus(articles)
-	
+
 	scores := make(map[string]float64)
 	for _, article := range articles {
 		scores[article.ID] = scorer.ScoreRelevance(article)
 	}
-	
+
 	// ml1 should score highest (matches all keywords)
 	// ml3 should score medium (matches python and mentions ML)
 	// ml2 should score lowest (only tangentially related)
-	
+
 	if scores["ml1"] <= scores["ml2"] {
 		t.Errorf("ML article should score higher than JavaScript article: ML=%f, JS=%f", scores["ml1"], scores["ml2"])
 	}
-	
+
 	if scores["ml1"] <= scores["ml3"] {
 		t.Errorf("Full ML article should score higher than Python basics: ML=%f, Python=%f", scores["ml1"], scores["ml3"])
 	}
-	
+
 	t.Logf("Integration test scores - ML: %.3f, JS: %.3f, Python: %.3f", scores["ml1"], scores["ml2"], scores["ml3"])
 }

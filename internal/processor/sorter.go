@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // SortBy defines the primary sorting criteria
@@ -34,7 +34,7 @@ type SortConfig struct {
 	Primary   SortBy    `json:"primary"`   // Primary sorting criterion
 	Secondary SortBy    `json:"secondary"` // Secondary sorting criterion (for tie-breaking)
 	Order     SortOrder `json:"order"`     // Sort order
-	
+
 	// Weights for composite sorting
 	RelevanceWeight  float64 `json:"relevanceWeight"`  // Weight for relevance (default: 0.4)
 	TimeWeight       float64 `json:"timeWeight"`       // Weight for recency (default: 0.3)
@@ -61,12 +61,12 @@ type PaginationResult struct {
 
 // UserPreferences defines user-specific ranking preferences
 type UserPreferences struct {
-	FavoriteTopics    []string          `json:"favoriteTopics"`    // Preferred topic keywords
-	PreferredSources  []string          `json:"preferredSources"`  // Preferred news sources
-	ReadingHistory    []string          `json:"readingHistory"`    // Article IDs user has read
+	FavoriteTopics    []string           `json:"favoriteTopics"`    // Preferred topic keywords
+	PreferredSources  []string           `json:"preferredSources"`  // Preferred news sources
+	ReadingHistory    []string           `json:"readingHistory"`    // Article IDs user has read
 	TopicWeights      map[string]float64 `json:"topicWeights"`      // Custom weights for topics
-	RecencyPreference float64           `json:"recencyPreference"` // How much user prefers recent articles (0-1)
-	LanguagePrefs     []string          `json:"languagePrefs"`     // Preferred programming languages for repos
+	RecencyPreference float64            `json:"recencyPreference"` // How much user prefers recent articles (0-1)
+	LanguagePrefs     []string           `json:"languagePrefs"`     // Preferred programming languages for repos
 }
 
 // ArticleSorter handles multi-dimensional sorting and pagination of articles
@@ -168,13 +168,13 @@ func (as *ArticleSorter) SortArticles(articles []*models.Article) []*models.Arti
 // compareArticles compares two articles based on sort configuration
 func (as *ArticleSorter) compareArticles(a, b *models.Article) bool {
 	primaryResult := as.compareByMetric(a, b, as.sortConfig.Primary)
-	
+
 	if primaryResult == 0 {
 		// Use secondary criterion for tie-breaking
 		secondaryResult := as.compareByMetric(a, b, as.sortConfig.Secondary)
 		return as.applyOrder(secondaryResult)
 	}
-	
+
 	return as.applyOrder(primaryResult)
 }
 
@@ -184,7 +184,7 @@ func (as *ArticleSorter) compareByMetric(a, b *models.Article, metric SortBy) in
 	switch metric {
 	case SortByRelevance:
 		return as.compareFloat64(a.Relevance, b.Relevance)
-		
+
 	case SortByTime:
 		if a.PublishedAt.Before(b.PublishedAt) {
 			return -1
@@ -192,21 +192,21 @@ func (as *ArticleSorter) compareByMetric(a, b *models.Article, metric SortBy) in
 			return 1
 		}
 		return 0
-		
+
 	case SortByPopularity:
 		return as.compareFloat64(a.Quality, b.Quality)
-		
+
 	case SortByTrend:
 		// Calculate trend score based on recency and quality
 		trendA := as.calculateTrendScore(a)
 		trendB := as.calculateTrendScore(b)
 		return as.compareFloat64(trendA, trendB)
-		
+
 	case SortByComposite:
 		compositeA := as.calculateCompositeScore(a)
 		compositeB := as.calculateCompositeScore(b)
 		return as.compareFloat64(compositeA, compositeB)
-		
+
 	default:
 		return 0
 	}
@@ -228,7 +228,7 @@ func (as *ArticleSorter) compareFloat64(a, b float64) int {
 func (as *ArticleSorter) calculateTrendScore(article *models.Article) float64 {
 	// Base score from quality
 	score := article.Quality * 0.4
-	
+
 	// Recency bonus (articles from last 24 hours get highest bonus)
 	hoursOld := time.Since(article.PublishedAt).Hours()
 	if hoursOld <= 24 {
@@ -238,27 +238,27 @@ func (as *ArticleSorter) calculateTrendScore(article *models.Article) float64 {
 	} else if hoursOld <= 30*24 {
 		score += 0.2 * (1.0 - (hoursOld-7*24)/(30*24-7*24))
 	}
-	
+
 	return math.Min(1.0, score)
 }
 
 // calculateCompositeScore calculates weighted composite score
 func (as *ArticleSorter) calculateCompositeScore(article *models.Article) float64 {
 	config := as.sortConfig
-	
+
 	score := 0.0
 	score += article.Relevance * config.RelevanceWeight
 	score += as.calculateTimeScore(article) * config.TimeWeight
 	score += article.Quality * config.PopularityWeight
 	score += as.calculateTrendScore(article) * config.TrendWeight
-	
+
 	return score
 }
 
 // calculateTimeScore converts publication time to a score (newer = higher)
 func (as *ArticleSorter) calculateTimeScore(article *models.Article) float64 {
 	hoursOld := time.Since(article.PublishedAt).Hours()
-	
+
 	// Use exponential decay to favor recent articles
 	// Score approaches 0 as articles get older
 	decayRate := 0.01 // Adjust this to change how quickly scores decay
@@ -314,26 +314,26 @@ func (as *ArticleSorter) applyPersonalization(articles []*models.Article) []*mod
 // articleMatchesToopic checks if article matches a topic
 func (as *ArticleSorter) articleMatchesToopic(article *models.Article, topic string) bool {
 	topicLower := strings.ToLower(topic)
-	
+
 	// Check title, summary, and tags
 	if strings.Contains(strings.ToLower(article.Title), topicLower) ||
-	   strings.Contains(strings.ToLower(article.Summary), topicLower) {
+		strings.Contains(strings.ToLower(article.Summary), topicLower) {
 		return true
 	}
-	
+
 	for _, tag := range article.Tags {
 		if strings.Contains(strings.ToLower(tag), topicLower) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // paginate applies pagination to the sorted articles
 func (as *ArticleSorter) paginate(articles []*models.Article, config PaginationConfig) *PaginationResult {
 	totalItems := len(articles)
-	
+
 	// Validate pagination config
 	if config.PageSize <= 0 {
 		config.PageSize = 20 // default page size
@@ -343,11 +343,11 @@ func (as *ArticleSorter) paginate(articles []*models.Article, config PaginationC
 	}
 
 	totalPages := int(math.Ceil(float64(totalItems) / float64(config.PageSize)))
-	
+
 	// Calculate start and end indices
 	startIdx := (config.Page - 1) * config.PageSize
 	endIdx := startIdx + config.PageSize
-	
+
 	if startIdx >= totalItems {
 		// Page is beyond available data
 		return &PaginationResult{
@@ -360,7 +360,7 @@ func (as *ArticleSorter) paginate(articles []*models.Article, config PaginationC
 			HasPrev:     config.Page > 1,
 		}
 	}
-	
+
 	if endIdx > totalItems {
 		endIdx = totalItems
 	}
@@ -438,13 +438,13 @@ func (rs *RepositorySorter) SortRepositories(repos []*models.Repository) []*mode
 // compareRepositories compares two repositories based on sort configuration
 func (rs *RepositorySorter) compareRepositories(a, b *models.Repository) bool {
 	primaryResult := rs.compareRepoByMetric(a, b, rs.sortConfig.Primary)
-	
+
 	if primaryResult == 0 {
 		// Use secondary criterion for tie-breaking
 		secondaryResult := rs.compareRepoByMetric(a, b, rs.sortConfig.Secondary)
 		return rs.applyRepoOrder(secondaryResult)
 	}
-	
+
 	return rs.applyRepoOrder(primaryResult)
 }
 
@@ -453,7 +453,7 @@ func (rs *RepositorySorter) compareRepoByMetric(a, b *models.Repository, metric 
 	switch metric {
 	case SortByTrend:
 		return rs.compareFloat64(a.TrendScore, b.TrendScore)
-		
+
 	case SortByTime:
 		if a.UpdatedAt.Before(b.UpdatedAt) {
 			return -1
@@ -461,7 +461,7 @@ func (rs *RepositorySorter) compareRepoByMetric(a, b *models.Repository, metric 
 			return 1
 		}
 		return 0
-		
+
 	case SortByPopularity:
 		// Use stars as popularity metric
 		if a.Stars < b.Stars {
@@ -470,12 +470,12 @@ func (rs *RepositorySorter) compareRepoByMetric(a, b *models.Repository, metric 
 			return 1
 		}
 		return 0
-		
+
 	case SortByComposite:
 		compositeA := rs.calculateRepoCompositeScore(a)
 		compositeB := rs.calculateRepoCompositeScore(b)
 		return rs.compareFloat64(compositeA, compositeB)
-		
+
 	default:
 		return rs.compareFloat64(a.TrendScore, b.TrendScore)
 	}
@@ -484,25 +484,25 @@ func (rs *RepositorySorter) compareRepoByMetric(a, b *models.Repository, metric 
 // calculateRepoCompositeScore calculates composite score for repository
 func (rs *RepositorySorter) calculateRepoCompositeScore(repo *models.Repository) float64 {
 	config := rs.sortConfig
-	
+
 	// Normalize stars for scoring (logarithmic scale)
-	normalizedStars := math.Log10(float64(repo.Stars + 1)) / 5.0 // Assume max ~10^5 stars
+	normalizedStars := math.Log10(float64(repo.Stars+1)) / 5.0 // Assume max ~10^5 stars
 	if normalizedStars > 1.0 {
 		normalizedStars = 1.0
 	}
-	
+
 	score := 0.0
 	score += repo.TrendScore * config.TrendWeight
 	score += rs.calculateRepoTimeScore(repo) * config.TimeWeight
 	score += normalizedStars * config.PopularityWeight
-	
+
 	return score
 }
 
 // calculateRepoTimeScore converts repository update time to score
 func (rs *RepositorySorter) calculateRepoTimeScore(repo *models.Repository) float64 {
 	hoursOld := time.Since(repo.UpdatedAt).Hours()
-	
+
 	// Repositories updated in last week get high scores
 	if hoursOld <= 7*24 {
 		return 1.0
@@ -513,7 +513,7 @@ func (rs *RepositorySorter) calculateRepoTimeScore(repo *models.Repository) floa
 	} else if hoursOld <= 365*24 {
 		return 0.4
 	}
-	
+
 	return 0.2
 }
 
@@ -551,7 +551,7 @@ func (rs *RepositorySorter) applyRepositoryPersonalization(repos []*models.Repos
 				break
 			}
 		}
-		
+
 		// Boost repositories matching favorite topics in name/description
 		for _, topic := range rs.userPrefs.FavoriteTopics {
 			if rs.repositoryMatchesToopic(repo, topic) {
@@ -571,16 +571,16 @@ func (rs *RepositorySorter) applyRepositoryPersonalization(repos []*models.Repos
 // repositoryMatchesToopic checks if repository matches a topic
 func (rs *RepositorySorter) repositoryMatchesToopic(repo *models.Repository, topic string) bool {
 	topicLower := strings.ToLower(topic)
-	
+
 	return strings.Contains(strings.ToLower(repo.Name), topicLower) ||
-		   strings.Contains(strings.ToLower(repo.Description), topicLower) ||
-		   strings.Contains(strings.ToLower(repo.FullName), topicLower)
+		strings.Contains(strings.ToLower(repo.Description), topicLower) ||
+		strings.Contains(strings.ToLower(repo.FullName), topicLower)
 }
 
 // paginateRepositories applies pagination to repositories
 func (rs *RepositorySorter) paginateRepositories(repos []*models.Repository, config PaginationConfig) *RepositoryPaginationResult {
 	totalItems := len(repos)
-	
+
 	// Validate pagination config
 	if config.PageSize <= 0 {
 		config.PageSize = 20 // default page size
@@ -590,11 +590,11 @@ func (rs *RepositorySorter) paginateRepositories(repos []*models.Repository, con
 	}
 
 	totalPages := int(math.Ceil(float64(totalItems) / float64(config.PageSize)))
-	
+
 	// Calculate start and end indices
 	startIdx := (config.Page - 1) * config.PageSize
 	endIdx := startIdx + config.PageSize
-	
+
 	if startIdx >= totalItems {
 		return &RepositoryPaginationResult{
 			Items:       []*models.Repository{},
@@ -606,7 +606,7 @@ func (rs *RepositorySorter) paginateRepositories(repos []*models.Repository, con
 			HasPrev:     config.Page > 1,
 		}
 	}
-	
+
 	if endIdx > totalItems {
 		endIdx = totalItems
 	}
@@ -679,10 +679,10 @@ func ValidatePaginationConfig(config PaginationConfig) error {
 	if config.Page < 1 {
 		return fmt.Errorf("page must be >= 1")
 	}
-	
+
 	if config.PageSize < 1 || config.PageSize > 100 {
 		return fmt.Errorf("page size must be between 1 and 100")
 	}
-	
+
 	return nil
 }

@@ -13,8 +13,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"frontend-news-mcp/internal/collector"
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/collector"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // Converter handles conversion from raw collector data to unified Article/Repository models
@@ -22,7 +22,7 @@ import (
 type Converter struct {
 	// mutex for thread-safe operations
 	mu sync.RWMutex
-	
+
 	// Configuration for data processing
 	config ConverterConfig
 }
@@ -31,25 +31,25 @@ type Converter struct {
 type ConverterConfig struct {
 	// Maximum length for summary text (default: 1000)
 	MaxSummaryLength int
-	
-	// Maximum length for title text (default: 500)  
+
+	// Maximum length for title text (default: 500)
 	MaxTitleLength int
-	
+
 	// Maximum length for content text (default: 50000)
 	MaxContentLength int
-	
+
 	// Default quality score for articles without explicit quality indicators
 	DefaultQuality float64
-	
+
 	// Default relevance score for articles without relevance calculation
 	DefaultRelevance float64
-	
+
 	// Enable aggressive HTML cleaning (removes more tags and attributes)
 	AggressiveHTMLCleaning bool
-	
+
 	// Normalize URLs to canonical form (removes tracking parameters, etc.)
 	NormalizeURLs bool
-	
+
 	// Time zone for date normalization (default: UTC)
 	TimeZone *time.Location
 }
@@ -232,23 +232,23 @@ func (c *Converter) BatchConvertArticles(collectorArticles []collector.Article) 
 
 	articles := make([]*models.Article, len(collectorArticles))
 	errors := make([]error, len(collectorArticles))
-	
+
 	// Use a wait group for concurrent processing
 	var wg sync.WaitGroup
-	
+
 	for i, collectorArticle := range collectorArticles {
 		wg.Add(1)
 		go func(index int, ca collector.Article) {
 			defer wg.Done()
-			
+
 			article, err := c.ConvertToArticle(ca)
 			articles[index] = article
 			errors[index] = err
 		}(i, collectorArticle)
 	}
-	
+
 	wg.Wait()
-	
+
 	return articles, errors
 }
 
@@ -262,16 +262,16 @@ func (c *Converter) normalizeTitle(title string) string {
 
 	// Decode HTML entities
 	title = html.UnescapeString(title)
-	
+
 	// Remove HTML tags
 	title = c.removeHTMLTags(title)
-	
+
 	// Normalize whitespace
 	title = c.normalizeWhitespace(title)
-	
+
 	// Truncate if too long
 	title = c.truncateText(title, c.config.MaxTitleLength)
-	
+
 	return strings.TrimSpace(title)
 }
 
@@ -298,7 +298,7 @@ func (c *Converter) normalizeURL(rawURL string) string {
 			"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
 			"fbclid", "gclid", "ref", "source", "campaign_id", "ad_id",
 		}
-		
+
 		for _, param := range trackingParams {
 			query.Del(param)
 		}
@@ -325,21 +325,21 @@ func (c *Converter) normalizeSource(source string) string {
 	source = strings.TrimSpace(source)
 	source = strings.ToLower(source)
 	source = strings.TrimPrefix(source, "www.")
-	
+
 	return source
 }
 
 // normalizeSourceType ensures source type is valid
 func (c *Converter) normalizeSourceType(sourceType string) string {
 	sourceType = strings.ToLower(strings.TrimSpace(sourceType))
-	
+
 	validTypes := []string{"rss", "api", "html"}
 	for _, validType := range validTypes {
 		if sourceType == validType {
 			return sourceType
 		}
 	}
-	
+
 	// Default to 'api' if unknown
 	return "api"
 }
@@ -360,13 +360,13 @@ func (c *Converter) normalizeText(text string) string {
 
 	// Decode HTML entities
 	text = html.UnescapeString(text)
-	
+
 	// Normalize Unicode (NFC normalization)
 	text = c.normalizeUnicode(text)
-	
+
 	// Normalize whitespace
 	text = c.normalizeWhitespace(text)
-	
+
 	return strings.TrimSpace(text)
 }
 
@@ -378,19 +378,19 @@ func (c *Converter) cleanAndNormalizeContent(content string) string {
 
 	// Remove HTML tags first (before decoding entities)
 	content = c.removeHTMLTags(content)
-	
+
 	// Decode HTML entities after removing tags
 	content = html.UnescapeString(content)
-	
+
 	// Remove special characters that might cause issues
 	content = c.removeSpecialCharacters(content)
-	
+
 	// Normalize whitespace
 	content = c.normalizeWhitespace(content)
-	
+
 	// Truncate if too long
 	content = c.truncateText(content, c.config.MaxContentLength)
-	
+
 	return strings.TrimSpace(content)
 }
 
@@ -426,12 +426,12 @@ func (c *Converter) normalizeTags(tags []string) []string {
 		// Clean and normalize tag
 		tag = c.normalizeText(tag)
 		tag = strings.ToLower(tag)
-		
+
 		// Skip empty or duplicate tags
 		if tag == "" || len(tag) > 50 || seenTags[tag] {
 			continue
 		}
-		
+
 		seenTags[tag] = true
 		normalizedTags = append(normalizedTags, tag)
 	}
@@ -451,7 +451,7 @@ func (c *Converter) removeHTMLTags(text string) string {
 		// Remove script and style tags with their content
 		scriptRegex := regexp.MustCompile(`<script[^>]*>.*?</script>`)
 		text = scriptRegex.ReplaceAllString(text, "")
-		
+
 		styleRegex := regexp.MustCompile(`<style[^>]*>.*?</style>`)
 		text = styleRegex.ReplaceAllString(text, "")
 	}
@@ -600,15 +600,15 @@ func (c *Converter) validateCollectorArticle(article collector.Article) error {
 	if strings.TrimSpace(article.Title) == "" {
 		return fmt.Errorf("title is required")
 	}
-	
+
 	if strings.TrimSpace(article.URL) == "" {
 		return fmt.Errorf("URL is required")
 	}
-	
+
 	if strings.TrimSpace(article.Source) == "" {
 		return fmt.Errorf("source is required")
 	}
-	
+
 	if strings.TrimSpace(article.SourceType) == "" {
 		return fmt.Errorf("sourceType is required")
 	}
@@ -755,7 +755,7 @@ func (c *Converter) extractFirstParagraph(content string) string {
 
 	// Split by paragraph breaks
 	paragraphs := strings.Split(content, "\n\n")
-	
+
 	for _, para := range paragraphs {
 		para = strings.TrimSpace(para)
 		// Skip empty paragraphs and very short ones
@@ -789,15 +789,15 @@ func (c *Converter) cleanHTMLContent(content string) string {
 
 	// Remove common non-content elements
 	unwantedPatterns := []string{
-		`<nav[^>]*>.*?</nav>`,           // Navigation
-		`<header[^>]*>.*?</header>`,     // Headers
-		`<footer[^>]*>.*?</footer>`,     // Footers
-		`<aside[^>]*>.*?</aside>`,       // Sidebars
-		`<div[^>]*class="[^"]*ad[^"]*"[^>]*>.*?</div>`,  // Ad containers
+		`<nav[^>]*>.*?</nav>`,                               // Navigation
+		`<header[^>]*>.*?</header>`,                         // Headers
+		`<footer[^>]*>.*?</footer>`,                         // Footers
+		`<aside[^>]*>.*?</aside>`,                           // Sidebars
+		`<div[^>]*class="[^"]*ad[^"]*"[^>]*>.*?</div>`,      // Ad containers
 		`<div[^>]*class="[^"]*comment[^"]*"[^>]*>.*?</div>`, // Comments
-		`<script[^>]*>.*?</script>`,     // Scripts
-		`<style[^>]*>.*?</style>`,       // Styles
-		`<!--.*?-->`,                    // Comments
+		`<script[^>]*>.*?</script>`,                         // Scripts
+		`<style[^>]*>.*?</style>`,                           // Styles
+		`<!--.*?-->`,                                        // Comments
 	}
 
 	for _, pattern := range unwantedPatterns {
@@ -817,18 +817,18 @@ func (c *Converter) extractArticleTitleFromHTML(title string) string {
 
 	// Common patterns in HTML titles: "Article Title | Site Name" or "Article Title - Site Name"
 	separators := []string{" | ", " - ", " :: ", " — "}
-	
+
 	// Find the first separator that appears in the title
 	bestIndex := len(title)
 	bestSep := ""
-	
+
 	for _, sep := range separators {
 		if index := strings.Index(title, sep); index != -1 && index < bestIndex {
 			bestIndex = index
 			bestSep = sep
 		}
 	}
-	
+
 	// If we found a separator, extract the part before it
 	if bestSep != "" {
 		parts := strings.Split(title, bestSep)

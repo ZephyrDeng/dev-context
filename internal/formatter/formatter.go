@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // OutputFormat represents the supported output formats
@@ -20,31 +20,31 @@ const (
 type Config struct {
 	// Format specifies the output format (json, markdown, text)
 	Format OutputFormat `json:"format"`
-	
+
 	// Indent specifies indentation for structured formats (JSON)
 	Indent string `json:"indent"`
-	
+
 	// DateFormat specifies the date format string
 	DateFormat string `json:"dateFormat"`
-	
+
 	// IncludeMetadata determines whether to include metadata in output
 	IncludeMetadata bool `json:"includeMetadata"`
-	
+
 	// IncludeContent determines whether to include full content (can be large)
 	IncludeContent bool `json:"includeContent"`
-	
+
 	// MaxSummaryLength limits the length of summaries in output
 	MaxSummaryLength int `json:"maxSummaryLength"`
-	
+
 	// SortBy specifies how to sort results (relevance, quality, date, title)
 	SortBy string `json:"sortBy"`
-	
+
 	// SortOrder specifies sort direction (asc, desc)
 	SortOrder string `json:"sortOrder"`
-	
+
 	// EnableLinks determines whether to make URLs clickable in supported formats
 	EnableLinks bool `json:"enableLinks"`
-	
+
 	// CompactOutput reduces whitespace for smaller output
 	CompactOutput bool `json:"compactOutput"`
 }
@@ -53,15 +53,15 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Format:           FormatJSON,
-		Indent:          "  ",
-		DateFormat:      "2006-01-02 15:04:05",
-		IncludeMetadata: false,
-		IncludeContent:  false,
+		Indent:           "  ",
+		DateFormat:       "2006-01-02 15:04:05",
+		IncludeMetadata:  false,
+		IncludeContent:   false,
 		MaxSummaryLength: 150,
-		SortBy:          "relevance",
-		SortOrder:       "desc",
-		EnableLinks:     true,
-		CompactOutput:   false,
+		SortBy:           "relevance",
+		SortOrder:        "desc",
+		EnableLinks:      true,
+		CompactOutput:    false,
 	}
 }
 
@@ -69,13 +69,13 @@ func DefaultConfig() *Config {
 type Formatter interface {
 	// FormatArticles formats a slice of articles according to the configuration
 	FormatArticles(articles []models.Article) (string, error)
-	
+
 	// FormatRepositories formats a slice of repositories according to the configuration
 	FormatRepositories(repositories []models.Repository) (string, error)
-	
+
 	// FormatMixed formats both articles and repositories in a unified output
 	FormatMixed(articles []models.Article, repositories []models.Repository) (string, error)
-	
+
 	// GetSupportedFormats returns the formats supported by this formatter
 	GetSupportedFormats() []OutputFormat
 }
@@ -136,12 +136,12 @@ func NewBatchFormatter(formatter Formatter, config *Config) *BatchFormatter {
 	if config == nil {
 		config = DefaultConfig()
 	}
-	
+
 	batchSize := 100 // Default batch size for performance
 	if config.CompactOutput {
 		batchSize = 500 // Larger batches for compact output
 	}
-	
+
 	return &BatchFormatter{
 		formatter: formatter,
 		config:    config,
@@ -154,14 +154,14 @@ func (bf *BatchFormatter) FormatArticlesBatch(articles []models.Article) (string
 	if len(articles) <= bf.batchSize {
 		return bf.formatter.FormatArticles(articles)
 	}
-	
+
 	var results []string
 	for i := 0; i < len(articles); i += bf.batchSize {
 		end := i + bf.batchSize
 		if end > len(articles) {
 			end = len(articles)
 		}
-		
+
 		batch := articles[i:end]
 		result, err := bf.formatter.FormatArticles(batch)
 		if err != nil {
@@ -169,7 +169,7 @@ func (bf *BatchFormatter) FormatArticlesBatch(articles []models.Article) (string
 		}
 		results = append(results, result)
 	}
-	
+
 	// Combine batch results based on format
 	return bf.combineBatchResults(results)
 }
@@ -179,14 +179,14 @@ func (bf *BatchFormatter) FormatRepositoriesBatch(repositories []models.Reposito
 	if len(repositories) <= bf.batchSize {
 		return bf.formatter.FormatRepositories(repositories)
 	}
-	
+
 	var results []string
 	for i := 0; i < len(repositories); i += bf.batchSize {
 		end := i + bf.batchSize
 		if end > len(repositories) {
 			end = len(repositories)
 		}
-		
+
 		batch := repositories[i:end]
 		result, err := bf.formatter.FormatRepositories(batch)
 		if err != nil {
@@ -194,7 +194,7 @@ func (bf *BatchFormatter) FormatRepositoriesBatch(repositories []models.Reposito
 		}
 		results = append(results, result)
 	}
-	
+
 	// Combine batch results based on format
 	return bf.combineBatchResults(results)
 }
@@ -221,7 +221,7 @@ func (bf *BatchFormatter) combineJSONResults(results []string) (string, error) {
 	if len(results) == 1 {
 		return results[0], nil
 	}
-	
+
 	// For JSON, we need to merge arrays properly
 	combined := "["
 	for i, result := range results {
@@ -234,7 +234,7 @@ func (bf *BatchFormatter) combineJSONResults(results []string) (string, error) {
 		}
 	}
 	combined += "]"
-	
+
 	return combined, nil
 }
 
@@ -275,16 +275,16 @@ func truncateText(text string, maxLength int) string {
 	if len(text) <= maxLength {
 		return text
 	}
-	
+
 	if maxLength <= 0 {
 		return ""
 	}
-	
+
 	// Find the last space within the limit to avoid cutting words
 	truncated := text[:maxLength]
 	if lastSpace := strings.LastIndex(truncated, " "); lastSpace > 0 {
 		truncated = truncated[:lastSpace]
 	}
-	
+
 	return truncated + "..."
 }

@@ -2,18 +2,17 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	
-	"frontend-news-mcp/internal/cache"
-	"frontend-news-mcp/internal/collector"
-	"frontend-news-mcp/internal/formatter"
-	"frontend-news-mcp/internal/mcp"
-	"frontend-news-mcp/internal/processor"
-	"frontend-news-mcp/internal/tools"
+
+	"github.com/ZephyrDeng/dev-context/internal/cache"
+	"github.com/ZephyrDeng/dev-context/internal/collector"
+	"github.com/ZephyrDeng/dev-context/internal/formatter"
+	"github.com/ZephyrDeng/dev-context/internal/mcp"
+	"github.com/ZephyrDeng/dev-context/internal/processor"
+	"github.com/ZephyrDeng/dev-context/internal/tools"
 )
 
 // 使用示例：如何集成和使用核心MCP工具
@@ -65,8 +64,8 @@ func main() {
 
 func initializeCacheManager() *cache.Manager {
 	config := &cache.Config{
-		MaxSize:     10000,
-		DefaultTTL:  time.Hour,
+		MaxSize:         10000,
+		DefaultTTL:      time.Hour,
 		CleanupInterval: 10 * time.Minute,
 	}
 	return cache.NewManager(config)
@@ -74,17 +73,17 @@ func initializeCacheManager() *cache.Manager {
 
 func initializeCollectorManager() *collector.Manager {
 	return collector.NewManager(&collector.Config{
-		Timeout: 30 * time.Second,
+		Timeout:    30 * time.Second,
 		MaxRetries: 3,
-		UserAgent: "FrontendNews-MCP/1.0",
+		UserAgent:  "FrontendNews-MCP/1.0",
 	})
 }
 
 func initializeProcessor() *processor.Processor {
 	return processor.NewProcessor(&processor.Config{
 		EnableSummarization: true,
-		EnableSorting: true,
-		MaxSummaryLength: 200,
+		EnableSorting:       true,
+		MaxSummaryLength:    200,
 	})
 }
 
@@ -104,8 +103,8 @@ func healthCheckLoop(ctx context.Context, toolsManager *tools.ToolsManager) {
 		case <-ticker.C:
 			health := toolsManager.HealthCheck(ctx)
 			stats := toolsManager.GetStats()
-			
-			log.Printf("健康检查 - 状态: %v, 活跃任务: %d, 缓存命中率: %.2f%%", 
+
+			log.Printf("健康检查 - 状态: %v, 活跃任务: %d, 缓存命中率: %.2f%%",
 				health["status"], stats.ActiveJobs, stats.CacheHitRate*100)
 		}
 	}
@@ -117,16 +116,16 @@ func demoToolUsage(ctx context.Context, handler *tools.Handler) {
 	// 演示1: 获取周报新闻
 	log.Println("1. 获取React相关周报新闻")
 	weeklyParams := tools.WeeklyNewsParams{
-		Category:    "react",
-		MinQuality:  0.6,
-		MaxResults:  10,
-		Format:      "json",
+		Category:   "react",
+		MinQuality: 0.6,
+		MaxResults: 10,
+		Format:     "json",
 	}
 
 	if result, err := handler.weeklyNewsService.GetWeeklyFrontendNews(ctx, weeklyParams); err != nil {
 		log.Printf("获取周报新闻失败: %v", err)
 	} else {
-		log.Printf("成功获取 %d 篇文章，涵盖 %d 个数据源", 
+		log.Printf("成功获取 %d 篇文章，涵盖 %d 个数据源",
 			len(result.Articles), len(result.Sources))
 	}
 
@@ -142,24 +141,24 @@ func demoToolUsage(ctx context.Context, handler *tools.Handler) {
 	if result, err := handler.topicSearchService.SearchFrontendTopic(ctx, searchParams); err != nil {
 		log.Printf("主题搜索失败: %v", err)
 	} else {
-		log.Printf("找到 %d 个相关结果：%d 篇文章, %d 个仓库, %d 个讨论", 
+		log.Printf("找到 %d 个相关结果：%d 篇文章, %d 个仓库, %d 个讨论",
 			result.TotalResults, len(result.Articles), len(result.Repositories), len(result.Discussions))
 	}
 
 	// 演示3: 获取热门仓库
 	log.Println("3. 获取本周热门TypeScript仓库")
 	reposParams := tools.TrendingReposParams{
-		Language:    "typescript",
-		TimeRange:   "weekly",
-		MinStars:    50,
-		MaxResults:  20,
-		Format:      "json",
+		Language:   "typescript",
+		TimeRange:  "weekly",
+		MinStars:   50,
+		MaxResults: 20,
+		Format:     "json",
 	}
 
 	if result, err := handler.trendingReposService.GetTrendingRepositories(ctx, reposParams); err != nil {
 		log.Printf("获取热门仓库失败: %v", err)
 	} else {
-		log.Printf("找到 %d 个热门仓库，平均星标数: %.0f", 
+		log.Printf("找到 %d 个热门仓库，平均星标数: %.0f",
 			len(result.Repositories), result.Summary.AverageStars)
 	}
 
@@ -178,7 +177,7 @@ func handleToolError(err error, toolName string) {
 	if validationErrors, ok := err.(tools.ValidationErrors); ok {
 		log.Printf("工具 %s 参数验证失败:", toolName)
 		for _, validationErr := range validationErrors {
-			log.Printf("  - 字段 %s: %s (错误代码: %s)", 
+			log.Printf("  - 字段 %s: %s (错误代码: %s)",
 				validationErr.Field, validationErr.Message, validationErr.Code)
 		}
 	} else {
@@ -193,18 +192,18 @@ type AppConfig struct {
 		DefaultTTL      time.Duration `json:"defaultTTL"`
 		CleanupInterval time.Duration `json:"cleanupInterval"`
 	} `json:"cache"`
-	
+
 	Collector struct {
 		Timeout    time.Duration `json:"timeout"`
 		MaxRetries int           `json:"maxRetries"`
 		UserAgent  string        `json:"userAgent"`
 	} `json:"collector"`
-	
+
 	Tools struct {
-		MaxConcurrency int `json:"maxConcurrency"`
+		MaxConcurrency int  `json:"maxConcurrency"`
 		EnableWarmup   bool `json:"enableWarmup"`
 	} `json:"tools"`
-	
+
 	MCP struct {
 		Name        string `json:"name"`
 		Version     string `json:"version"`
@@ -233,7 +232,7 @@ func loadConfig() *AppConfig {
 			UserAgent:  "FrontendNews-MCP/1.0",
 		},
 		Tools: struct {
-			MaxConcurrency int `json:"maxConcurrency"`
+			MaxConcurrency int  `json:"maxConcurrency"`
 			EnableWarmup   bool `json:"enableWarmup"`
 		}{
 			MaxConcurrency: 10,
@@ -244,7 +243,7 @@ func loadConfig() *AppConfig {
 			Version     string `json:"version"`
 			Description string `json:"description"`
 		}{
-			Name:        "frontend-news-mcp",
+			Name:        "github.com/ZephyrDeng/dev-context",
 			Version:     "v1.0.0",
 			Description: "前端开发新闻和资源MCP服务器",
 		},

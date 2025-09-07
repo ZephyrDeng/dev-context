@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"frontend-news-mcp/internal/cache"
-	"frontend-news-mcp/internal/collector"
-	"frontend-news-mcp/internal/formatter"
-	"frontend-news-mcp/internal/processor"
+	"github.com/ZephyrDeng/dev-context/internal/cache"
+	"github.com/ZephyrDeng/dev-context/internal/collector"
+	"github.com/ZephyrDeng/dev-context/internal/formatter"
+	"github.com/ZephyrDeng/dev-context/internal/processor"
 )
 
 // ToolsManager 工具管理器，提供并发请求处理和缓存优化
@@ -122,23 +122,23 @@ func (tm *ToolsManager) GetStats() ManagerStats {
 	tm.concurrency.mu.RUnlock()
 
 	return ManagerStats{
-		MaxConcurrency:  tm.concurrency.maxConcurrent,
-		ActiveJobs:      activeJobs,
-		AvailableSlots:  tm.concurrency.maxConcurrent - activeJobs,
-		CacheSize:       tm.cache.Size(),
-		CacheHitRate:    0.0, // TODO: 实现缓存命中率统计
-		UpdatedAt:       time.Now(),
+		MaxConcurrency: tm.concurrency.maxConcurrent,
+		ActiveJobs:     activeJobs,
+		AvailableSlots: tm.concurrency.maxConcurrent - activeJobs,
+		CacheSize:      tm.cache.Size(),
+		CacheHitRate:   0.0, // TODO: 实现缓存命中率统计
+		UpdatedAt:      time.Now(),
 	}
 }
 
 // ManagerStats 管理器统计信息
 type ManagerStats struct {
-	MaxConcurrency  int     `json:"maxConcurrency"`
-	ActiveJobs      int     `json:"activeJobs"`
-	AvailableSlots  int     `json:"availableSlots"`
-	CacheSize       int     `json:"cacheSize"`
-	CacheHitRate    float64 `json:"cacheHitRate"`
-	UpdatedAt       time.Time `json:"updatedAt"`
+	MaxConcurrency int       `json:"maxConcurrency"`
+	ActiveJobs     int       `json:"activeJobs"`
+	AvailableSlots int       `json:"availableSlots"`
+	CacheSize      int       `json:"cacheSize"`
+	CacheHitRate   float64   `json:"cacheHitRate"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 // WarmupCache 预热缓存，为常见查询预加载数据
@@ -156,10 +156,10 @@ func (tm *ToolsManager) WarmupCache(ctx context.Context) error {
 	// 预热热门仓库缓存
 	go func() {
 		params := TrendingReposParams{
-			TimeRange:   "weekly",
-			MaxResults:  30,
-			MinStars:    10,
-			Format:      "json",
+			TimeRange:  "weekly",
+			MaxResults: 30,
+			MinStars:   10,
+			Format:     "json",
 		}
 		_, _ = tm.handler.trendingReposService.GetTrendingRepositories(ctx, params)
 	}()
@@ -176,7 +176,7 @@ func (tm *ToolsManager) HealthCheck(ctx context.Context) map[string]interface{} 
 
 	// 检查缓存状态
 	health["cache"] = map[string]interface{}{
-		"status": "healthy", 
+		"status": "healthy",
 		"size":   tm.cache.Size(),
 	}
 
@@ -190,8 +190,8 @@ func (tm *ToolsManager) HealthCheck(ctx context.Context) map[string]interface{} 
 
 	// 检查工具可用性
 	toolsHealth := map[string]bool{
-		"get_weekly_frontend_news": tm.handler.weeklyNewsService != nil,
-		"search_frontend_topic":    tm.handler.topicSearchService != nil,
+		"get_weekly_frontend_news":  tm.handler.weeklyNewsService != nil,
+		"search_frontend_topic":     tm.handler.topicSearchService != nil,
 		"get_trending_repositories": tm.handler.trendingReposService != nil,
 	}
 	health["tools"] = toolsHealth

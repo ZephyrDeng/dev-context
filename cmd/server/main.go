@@ -1,4 +1,4 @@
-// Package main provides the entry point for the frontend-news-mcp server.
+// Package main provides the entry point for the github.com/ZephyrDeng/dev-context server.
 package main
 
 import (
@@ -11,12 +11,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"frontend-news-mcp/internal/cache"
-	"frontend-news-mcp/internal/collector"
-	"frontend-news-mcp/internal/formatter"
-	"frontend-news-mcp/internal/mcp"
-	"frontend-news-mcp/internal/processor"
-	"frontend-news-mcp/internal/tools"
+	"github.com/ZephyrDeng/dev-context/internal/cache"
+	"github.com/ZephyrDeng/dev-context/internal/collector"
+	"github.com/ZephyrDeng/dev-context/internal/formatter"
+	"github.com/ZephyrDeng/dev-context/internal/mcp"
+	"github.com/ZephyrDeng/dev-context/internal/processor"
+	"github.com/ZephyrDeng/dev-context/internal/tools"
 )
 
 var (
@@ -37,7 +37,7 @@ func main() {
 
 	// Show version and exit
 	if *showVer {
-		fmt.Printf("frontend-news-mcp %s (commit: %s)\n", version, commit)
+		fmt.Printf("github.com/ZephyrDeng/dev-context %s (commit: %s)\n", version, commit)
 		os.Exit(0)
 	}
 
@@ -58,7 +58,7 @@ func main() {
 
 	// Create server configuration
 	config := &mcp.Config{
-		Name:        "frontend-news-mcp",
+		Name:        "github.com/ZephyrDeng/dev-context",
 		Version:     version,
 		Description: "Real-time frontend news MCP server",
 		LogLevel:    level,
@@ -72,13 +72,13 @@ func main() {
 
 	// Create MCP server
 	server := mcp.NewServer(config)
-	
+
 	// Add basic capabilities
 	if err := server.AddBasicCapabilities(); err != nil {
 		log.Fatalf("Failed to add basic capabilities: %v", err)
 	}
 
-	// Initialize core components  
+	// Initialize core components
 	cacheManager := initializeCacheManager()
 	collectorManager := initializeCollectorManager()
 	processor := initializeProcessor()
@@ -172,7 +172,7 @@ func initializeCollectorManager() *collector.CollectorManager {
 
 func initializeProcessor() *processor.Processor {
 	return processor.NewProcessor(&processor.Config{
-		EnableSummarization:  true,
+		EnableSummarization: true,
 		EnableSorting:       true,
 		MaxSummaryLength:    200,
 	})

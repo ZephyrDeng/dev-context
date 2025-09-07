@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // Test data for sorting
@@ -56,7 +56,7 @@ var sortTestRepos = []*models.Repository{
 		UpdatedAt:   time.Now().Add(-1 * time.Hour),
 	},
 	{
-		ID:          "popular_repo", 
+		ID:          "popular_repo",
 		Name:        "react",
 		FullName:    "facebook/react",
 		Description: "A declarative JavaScript library",
@@ -71,7 +71,7 @@ var sortTestRepos = []*models.Repository{
 		Name:        "jquery",
 		FullName:    "jquery/jquery",
 		Description: "jQuery JavaScript Library",
-		Language:    "JavaScript", 
+		Language:    "JavaScript",
 		Stars:       57000,
 		Forks:       20000,
 		TrendScore:  0.3,
@@ -111,7 +111,7 @@ func TestNewRepositorySorter(t *testing.T) {
 func TestSortArticlesByRelevance(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"test"})
 	sorter := NewArticleSorter(scorer)
-	
+
 	// Set sort config to relevance
 	config := SortConfig{
 		Primary:   SortByRelevance,
@@ -124,7 +124,7 @@ func TestSortArticlesByRelevance(t *testing.T) {
 
 	// Should be sorted by relevance descending
 	if sorted[0].Relevance < sorted[1].Relevance {
-		t.Errorf("Articles not sorted by relevance: first=%f, second=%f", 
+		t.Errorf("Articles not sorted by relevance: first=%f, second=%f",
 			sorted[0].Relevance, sorted[1].Relevance)
 	}
 
@@ -137,7 +137,7 @@ func TestSortArticlesByRelevance(t *testing.T) {
 func TestSortArticlesByTime(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"test"})
 	sorter := NewArticleSorter(scorer)
-	
+
 	config := SortConfig{
 		Primary:   SortByTime,
 		Secondary: SortByPopularity,
@@ -161,7 +161,7 @@ func TestSortArticlesByTime(t *testing.T) {
 func TestSortArticlesByPopularity(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"test"})
 	sorter := NewArticleSorter(scorer)
-	
+
 	config := SortConfig{
 		Primary:   SortByPopularity,
 		Secondary: SortByTime,
@@ -186,7 +186,7 @@ func TestSortArticlesByPopularity(t *testing.T) {
 func TestSortArticlesByTrend(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"test"})
 	sorter := NewArticleSorter(scorer)
-	
+
 	config := SortConfig{
 		Primary:   SortByTrend,
 		Secondary: SortByPopularity,
@@ -214,7 +214,7 @@ func TestSortArticlesByTrend(t *testing.T) {
 func TestSortArticlesByComposite(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"test"})
 	sorter := NewArticleSorter(scorer)
-	
+
 	// Use default composite sorting
 	sorted := sorter.SortArticles(sortTestArticles)
 
@@ -232,7 +232,7 @@ func TestSortArticlesByComposite(t *testing.T) {
 func TestSortArticlesAscending(t *testing.T) {
 	scorer := NewRelevanceScorer([]string{"test"})
 	sorter := NewArticleSorter(scorer)
-	
+
 	config := SortConfig{
 		Primary: SortByRelevance,
 		Order:   SortAsc,
@@ -250,7 +250,7 @@ func TestSortArticlesAscending(t *testing.T) {
 
 func TestSortRepositoriesByTrend(t *testing.T) {
 	sorter := NewRepositorySorter()
-	
+
 	sorted := sorter.SortRepositories(sortTestRepos)
 
 	// Should be sorted by trend score descending
@@ -267,7 +267,7 @@ func TestSortRepositoriesByTrend(t *testing.T) {
 
 func TestSortRepositoriesByPopularity(t *testing.T) {
 	sorter := NewRepositorySorter()
-	
+
 	config := SortConfig{
 		Primary:   SortByPopularity,
 		Secondary: SortByTime,
@@ -482,7 +482,7 @@ func TestUserPreferencesPersonalization(t *testing.T) {
 			PublishedAt: time.Now().Add(-12 * time.Hour),
 		},
 		{
-			ID:          "db_article", 
+			ID:          "db_article",
 			Title:       "Database Optimization",
 			Summary:     "Optimize database performance",
 			Source:      "db-weekly",
@@ -510,7 +510,7 @@ func TestUserPreferencesPersonalization(t *testing.T) {
 	// 1. Favorite topic match
 	// 2. Preferred source match
 	// 3. Recent publication (recency preference)
-	
+
 	// Check that personalization affected scores
 	foundGoFirst := result.Items[0].ID == "go_article"
 	if !foundGoFirst {
@@ -607,7 +607,7 @@ func TestCalculateTrendScore(t *testing.T) {
 
 	// Recent article should have higher trend score
 	if recentScore <= oldScore {
-		t.Errorf("Recent article should have higher trend score: recent=%f, old=%f", 
+		t.Errorf("Recent article should have higher trend score: recent=%f, old=%f",
 			recentScore, oldScore)
 	}
 

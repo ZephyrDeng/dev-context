@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // JSONFormatter implements the JSON output format with proper structure and indentation
@@ -38,13 +38,13 @@ func (jf *JSONFormatter) FormatArticles(articles []models.Article) (string, erro
 	// Marshal to JSON with proper indentation
 	var data []byte
 	var err error
-	
+
 	if jf.config.CompactOutput {
 		data, err = json.Marshal(jsonArticles)
 	} else {
 		data, err = json.MarshalIndent(jsonArticles, "", jf.config.Indent)
 	}
-	
+
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal articles to JSON: %w", err)
 	}
@@ -67,13 +67,13 @@ func (jf *JSONFormatter) FormatRepositories(repositories []models.Repository) (s
 	// Marshal to JSON with proper indentation
 	var data []byte
 	var err error
-	
+
 	if jf.config.CompactOutput {
 		data, err = json.Marshal(jsonRepos)
 	} else {
 		data, err = json.MarshalIndent(jsonRepos, "", jf.config.Indent)
 	}
-	
+
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal repositories to JSON: %w", err)
 	}
@@ -96,13 +96,13 @@ func (jf *JSONFormatter) FormatMixed(articles []models.Article, repositories []m
 	// Marshal to JSON with proper indentation
 	var data []byte
 	var err error
-	
+
 	if jf.config.CompactOutput {
 		data, err = json.Marshal(result)
 	} else {
 		data, err = json.MarshalIndent(result, "", jf.config.Indent)
 	}
-	
+
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal mixed content to JSON: %w", err)
 	}

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // TextFormatter implements the plain text output format for simple, readable output
@@ -29,7 +29,7 @@ func (tf *TextFormatter) FormatArticles(articles []models.Article) (string, erro
 	}
 
 	var text strings.Builder
-	
+
 	// Header
 	tf.writeHeader(&text, "ARTICLES", len(articles))
 
@@ -54,7 +54,7 @@ func (tf *TextFormatter) FormatRepositories(repositories []models.Repository) (s
 	}
 
 	var text strings.Builder
-	
+
 	// Header
 	tf.writeHeader(&text, "REPOSITORIES", len(repositories))
 
@@ -75,10 +75,10 @@ func (tf *TextFormatter) FormatRepositories(repositories []models.Repository) (s
 // FormatMixed formats both articles and repositories in a unified text output
 func (tf *TextFormatter) FormatMixed(articles []models.Article, repositories []models.Repository) (string, error) {
 	var text strings.Builder
-	
+
 	// Header
 	tf.writeHeader(&text, "DEVELOPMENT CONTEXT REPORT", len(articles)+len(repositories))
-	
+
 	// Summary
 	text.WriteString("SUMMARY:\n")
 	text.WriteString(fmt.Sprintf("  Articles:     %d\n", len(articles)))
@@ -90,7 +90,7 @@ func (tf *TextFormatter) FormatMixed(articles []models.Article, repositories []m
 	// Articles section
 	if len(articles) > 0 {
 		tf.writeSectionHeader(&text, "ARTICLES")
-		
+
 		sortedArticles := tf.sortArticles(articles)
 		for i, article := range sortedArticles {
 			if i > 0 {
@@ -106,7 +106,7 @@ func (tf *TextFormatter) FormatMixed(articles []models.Article, repositories []m
 			text.WriteString("\n")
 		}
 		tf.writeSectionHeader(&text, "REPOSITORIES")
-		
+
 		sortedRepos := tf.sortRepositories(repositories)
 		for i, repo := range sortedRepos {
 			if i > 0 {
@@ -127,7 +127,7 @@ func (tf *TextFormatter) GetSupportedFormats() []OutputFormat {
 // formatSingleArticle formats a single article as plain text
 func (tf *TextFormatter) formatSingleArticle(text *strings.Builder, article models.Article, index int) {
 	title := tf.cleanText(article.Title)
-	
+
 	if tf.config.CompactOutput {
 		// Compact format - single line per article
 		text.WriteString(fmt.Sprintf("%d. %s", index, title))
@@ -139,7 +139,7 @@ func (tf *TextFormatter) formatSingleArticle(text *strings.Builder, article mode
 			text.WriteString(fmt.Sprintf(" R:%.1f Q:%.1f", article.Relevance*100, article.Quality*100))
 		}
 		text.WriteString("\n")
-		
+
 		if article.Summary != "" && !tf.config.CompactOutput {
 			summary := article.Summary
 			if tf.config.MaxSummaryLength > 0 && len(summary) > tf.config.MaxSummaryLength {
@@ -150,23 +150,23 @@ func (tf *TextFormatter) formatSingleArticle(text *strings.Builder, article mode
 	} else {
 		// Full format
 		text.WriteString(fmt.Sprintf("[%d] %s\n", index, title))
-		
+
 		// Metadata
 		text.WriteString(fmt.Sprintf("    Source:    %s (%s)\n", article.Source, article.SourceType))
 		text.WriteString(fmt.Sprintf("    Published: %s\n", formatTimestamp(article.PublishedAt, tf.config.DateFormat)))
-		
+
 		if article.URL != "" {
 			text.WriteString(fmt.Sprintf("    URL:       %s\n", article.URL))
 		}
-		
+
 		if article.Relevance > 0 {
 			text.WriteString(fmt.Sprintf("    Relevance: %.1f%%\n", article.Relevance*100))
 		}
-		
+
 		if article.Quality > 0 {
 			text.WriteString(fmt.Sprintf("    Quality:   %.1f%%\n", article.Quality*100))
 		}
-		
+
 		// Summary
 		if article.Summary != "" {
 			summary := article.Summary
@@ -176,19 +176,19 @@ func (tf *TextFormatter) formatSingleArticle(text *strings.Builder, article mode
 			text.WriteString("\n    Summary:\n")
 			text.WriteString(fmt.Sprintf("    %s\n", tf.wrapText(tf.cleanText(summary), 76, "    ")))
 		}
-		
+
 		// Tags
 		if len(article.Tags) > 0 {
 			text.WriteString(fmt.Sprintf("\n    Tags: %s\n", strings.Join(article.Tags, ", ")))
 		}
-		
+
 		// Content (if requested)
 		if tf.config.IncludeContent && article.Content != "" {
 			text.WriteString("\n    Content:\n")
 			content := tf.cleanText(article.Content)
 			text.WriteString(fmt.Sprintf("    %s\n", tf.wrapText(content, 76, "    ")))
 		}
-		
+
 		// Metadata (if requested)
 		if tf.config.IncludeMetadata && len(article.Metadata) > 0 {
 			text.WriteString("\n    Additional Info:\n")
@@ -197,14 +197,14 @@ func (tf *TextFormatter) formatSingleArticle(text *strings.Builder, article mode
 			}
 		}
 	}
-	
+
 	text.WriteString("\n")
 }
 
 // formatSingleRepository formats a single repository as plain text
 func (tf *TextFormatter) formatSingleRepository(text *strings.Builder, repo models.Repository, index int) {
 	name := tf.cleanText(repo.FullName)
-	
+
 	if tf.config.CompactOutput {
 		// Compact format - single line per repository
 		text.WriteString(fmt.Sprintf("%d. %s", index, name))
@@ -216,14 +216,14 @@ func (tf *TextFormatter) formatSingleRepository(text *strings.Builder, repo mode
 			text.WriteString(fmt.Sprintf(" T:%.1f", repo.TrendScore*100))
 		}
 		text.WriteString("\n")
-		
+
 		if repo.Description != "" && len(repo.Description) < 100 {
 			text.WriteString(fmt.Sprintf("   %s\n", tf.cleanText(repo.Description)))
 		}
 	} else {
 		// Full format
 		text.WriteString(fmt.Sprintf("[%d] %s\n", index, name))
-		
+
 		// Metadata
 		if repo.Language != "" {
 			text.WriteString(fmt.Sprintf("    Language:    %s\n", repo.Language))
@@ -232,11 +232,11 @@ func (tf *TextFormatter) formatSingleRepository(text *strings.Builder, repo mode
 		text.WriteString(fmt.Sprintf("    Forks:       %d\n", repo.Forks))
 		text.WriteString(fmt.Sprintf("    Trend Score: %.1f%%\n", repo.TrendScore*100))
 		text.WriteString(fmt.Sprintf("    Updated:     %s\n", formatTimestamp(repo.UpdatedAt, tf.config.DateFormat)))
-		
+
 		if repo.URL != "" {
 			text.WriteString(fmt.Sprintf("    URL:         %s\n", repo.URL))
 		}
-		
+
 		// Description
 		if repo.Description != "" {
 			description := repo.Description
@@ -246,16 +246,16 @@ func (tf *TextFormatter) formatSingleRepository(text *strings.Builder, repo mode
 			text.WriteString("\n    Description:\n")
 			text.WriteString(fmt.Sprintf("    %s\n", tf.wrapText(tf.cleanText(description), 76, "    ")))
 		}
-		
+
 		// Stats
 		popularityTier := repo.GetPopularityTier()
 		activityLevel := repo.GetActivityLevel()
-		
-		text.WriteString(fmt.Sprintf("\n    Status: %s, %s\n", 
+
+		text.WriteString(fmt.Sprintf("\n    Status: %s, %s\n",
 			tf.formatPopularityTier(popularityTier),
 			tf.formatActivityLevel(activityLevel)))
 	}
-	
+
 	text.WriteString("\n")
 }
 
@@ -299,7 +299,7 @@ func (tf *TextFormatter) cleanText(input string) string {
 	// Remove HTML tags (simple approach)
 	text := strings.ReplaceAll(input, "<", "&lt;")
 	text = strings.ReplaceAll(text, ">", "&gt;")
-	
+
 	// Normalize whitespace
 	words := strings.Fields(text)
 	return strings.Join(words, " ")
@@ -310,19 +310,19 @@ func (tf *TextFormatter) wrapText(text string, width int, prefix string) string 
 	if width <= 0 {
 		return text
 	}
-	
+
 	words := strings.Fields(text)
 	if len(words) == 0 {
 		return ""
 	}
-	
+
 	var result strings.Builder
 	var currentLine strings.Builder
 	currentLength := 0
-	
+
 	for _, word := range words {
 		wordLen := len(word)
-		
+
 		// If adding this word would exceed width, start a new line
 		if currentLength > 0 && currentLength+1+wordLen > width {
 			result.WriteString(currentLine.String())
@@ -331,7 +331,7 @@ func (tf *TextFormatter) wrapText(text string, width int, prefix string) string 
 			currentLine.Reset()
 			currentLength = 0
 		}
-		
+
 		// Add word to current line
 		if currentLength > 0 {
 			currentLine.WriteString(" ")
@@ -340,12 +340,12 @@ func (tf *TextFormatter) wrapText(text string, width int, prefix string) string 
 		currentLine.WriteString(word)
 		currentLength += wordLen
 	}
-	
+
 	// Add the last line
 	if currentLength > 0 {
 		result.WriteString(currentLine.String())
 	}
-	
+
 	return result.String()
 }
 

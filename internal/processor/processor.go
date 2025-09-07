@@ -7,21 +7,21 @@ import (
 	"sync"
 	"time"
 
-	"frontend-news-mcp/internal/models"
+	"github.com/ZephyrDeng/dev-context/internal/models"
 )
 
 // Processor provides unified data processing functionality
 type Processor struct {
-	config      *Config
-	summarizer  *Summarizer
-	sorter      *ArticleSorter
-	converter   *Converter
-	mu          sync.RWMutex
+	config     *Config
+	summarizer *Summarizer
+	sorter     *ArticleSorter
+	converter  *Converter
+	mu         sync.RWMutex
 }
 
 // Config holds processor configuration
 type Config struct {
-	EnableSummarization  bool          `json:"enableSummarization"`
+	EnableSummarization bool          `json:"enableSummarization"`
 	EnableSorting       bool          `json:"enableSorting"`
 	MaxSummaryLength    int           `json:"maxSummaryLength"`
 	ProcessingTimeout   time.Duration `json:"processingTimeout"`
@@ -48,7 +48,7 @@ func NewProcessor(config *Config) *Processor {
 	return &Processor{
 		config:     config,
 		summarizer: NewSummarizer(),
-		sorter: NewArticleSorter(nil), // No relevance scorer needed for basic sorting
+		sorter:     NewArticleSorter(nil), // No relevance scorer needed for basic sorting
 		converter: NewConverter(ConverterConfig{
 			MaxSummaryLength: 1000,
 			MaxTitleLength:   500,
@@ -91,7 +91,7 @@ func (p *Processor) ProcessArticles(ctx context.Context, articles []models.Artic
 			default:
 				// Process single article
 				processedArticle := p.processSingleArticle(ctx, a, options)
-				
+
 				mu.Lock()
 				processed = append(processed, processedArticle)
 				mu.Unlock()
@@ -112,9 +112,9 @@ func (p *Processor) ProcessArticles(ctx context.Context, articles []models.Artic
 		for i := range processed {
 			articlePtrs[i] = &processed[i]
 		}
-		
+
 		sortedPtrs := p.sorter.SortArticles(articlePtrs)
-		
+
 		// Convert back to []models.Article
 		processed = make([]models.Article, len(sortedPtrs))
 		for i, ptr := range sortedPtrs {
@@ -197,26 +197,26 @@ func (p *Processor) CalculateFrontendRelevance(article models.Article, query str
 
 	// Frontend-specific keywords and their weights
 	frontendKeywords := map[string]float64{
-		"react":       0.15,
-		"vue":         0.15,
-		"angular":     0.15,
-		"javascript":  0.12,
-		"typescript":  0.12,
-		"css":         0.10,
-		"html":        0.08,
-		"frontend":    0.10,
-		"ui":          0.08,
-		"ux":          0.06,
-		"responsive":  0.07,
-		"webpack":     0.05,
-		"babel":       0.04,
-		"npm":         0.04,
-		"yarn":        0.04,
-		"nextjs":      0.08,
-		"nuxt":        0.08,
-		"svelte":      0.10,
-		"tailwind":    0.06,
-		"bootstrap":   0.05,
+		"react":      0.15,
+		"vue":        0.15,
+		"angular":    0.15,
+		"javascript": 0.12,
+		"typescript": 0.12,
+		"css":        0.10,
+		"html":       0.08,
+		"frontend":   0.10,
+		"ui":         0.08,
+		"ux":         0.06,
+		"responsive": 0.07,
+		"webpack":    0.05,
+		"babel":      0.04,
+		"npm":        0.04,
+		"yarn":       0.04,
+		"nextjs":     0.08,
+		"nuxt":       0.08,
+		"svelte":     0.10,
+		"tailwind":   0.06,
+		"bootstrap":  0.05,
 	}
 
 	title := article.Title
@@ -256,12 +256,12 @@ func (p *Processor) CalculateFrontendRelevance(article models.Article, query str
 
 	// Source bonus (trusted frontend sources)
 	frontendSources := map[string]float64{
-		"css-tricks.com": 0.1,
-		"dev.to":         0.08,
-		"medium.com":     0.06,
-		"hackernews":     0.05,
+		"css-tricks.com":   0.1,
+		"dev.to":           0.08,
+		"medium.com":       0.06,
+		"hackernews":       0.05,
 		"smashingmagazine": 0.1,
-		"a11yproject":    0.08,
+		"a11yproject":      0.08,
 	}
 
 	for source, bonus := range frontendSources {
@@ -315,10 +315,10 @@ func (p *Processor) GetStats() ProcessorStats {
 	defer p.mu.RUnlock()
 
 	return ProcessorStats{
-		ProcessedArticles:    0, // Would be tracked in implementation
+		ProcessedArticles:     0, // Would be tracked in implementation
 		ProcessedRepositories: 0, // Would be tracked in implementation
 		AverageProcessingTime: 0, // Would be tracked in implementation
-		CacheHitRate:         0, // Would be tracked if caching is implemented
+		CacheHitRate:          0, // Would be tracked if caching is implemented
 	}
 }
 
@@ -327,21 +327,21 @@ type ProcessorStats struct {
 	ProcessedArticles     int           `json:"processedArticles"`
 	ProcessedRepositories int           `json:"processedRepositories"`
 	AverageProcessingTime time.Duration `json:"averageProcessingTime"`
-	CacheHitRate         float64       `json:"cacheHitRate"`
+	CacheHitRate          float64       `json:"cacheHitRate"`
 }
 
 // Helper functions
 func containsIgnoreCase(text, substr string) bool {
 	// Simple case-insensitive contains check
-	return len(text) > 0 && len(substr) > 0 && 
-		   findSubstring(toLower(text), toLower(substr))
+	return len(text) > 0 && len(substr) > 0 &&
+		findSubstring(toLower(text), toLower(substr))
 }
 
 func findSubstring(text, substr string) bool {
 	if len(substr) > len(text) {
 		return false
 	}
-	
+
 	for i := 0; i <= len(text)-len(substr); i++ {
 		match := true
 		for j := 0; j < len(substr); j++ {
