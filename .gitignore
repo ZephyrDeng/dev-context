@@ -1,0 +1,142 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/dev-context
+/dev-context_*
+dev-context
+dev-context_*
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+*.prof
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# Build directories
+/dist/
+/build/
+/bin/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environment and configuration files
+.env
+.env.local
+.env.production
+.env.test
+*.local
+config.json
+config.yaml
+config.yml
+secrets.json
+
+# Log files
+*.log
+logs/
+/tmp/
+
+# Test coverage reports
+/coverage/
+coverage.out
+coverage.html
+/test-results/
+
+# Cache directories
+.cache/
+/cache/
+
+# Docker files
+.dockerignore
+docker-compose.override.yml
+
+# Air live reloading
+/tmp/
+.air.toml
+
+# Development tools
+.tool-versions
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Go module cache
+/go/pkg/
+
+# Backup files
+*.bak
+*.backup
+*.tmp
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Dependency lock files
+go.sum.lock
+
+# Local development files
+.local/
+local/
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Prometheus metrics
+metrics.txt
+
+# Documentation build artifacts
+/docs/build/
+
+# Temporary files
+temp/
+temporary/
+
+# MCP Server specific
+/mcp-data/
+/server-data/
+*.mcp.log
+
+# Performance profiling files
+*.pprof
+mem.prof
+cpu.prof
+
+# Integration test artifacts
+/integration-test-data/
