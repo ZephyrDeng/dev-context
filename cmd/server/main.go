@@ -11,7 +11,12 @@ import (
 	"os/signal"
 	"syscall"
 
+	"frontend-news-mcp/internal/cache"
+	"frontend-news-mcp/internal/collector"
+	"frontend-news-mcp/internal/formatter"
 	"frontend-news-mcp/internal/mcp"
+	"frontend-news-mcp/internal/processor"
+	"frontend-news-mcp/internal/tools"
 )
 
 var (
@@ -73,9 +78,41 @@ func main() {
 		log.Fatalf("Failed to add basic capabilities: %v", err)
 	}
 
+	// Initialize core components  
+	cacheManager := initializeCacheManager()
+	collectorManager := initializeCollectorManager()
+	processor := initializeProcessor()
+	formatterFactory := initializeFormatterFactory()
+
+	// Create tools manager
+	toolsManager := tools.NewToolsManager(
+		cacheManager,
+		collectorManager,
+		processor,
+		formatterFactory,
+		10, // max concurrency
+	)
+
 	// Create context that cancels on interrupt signals
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Register tools to MCP server
+	handler := toolsManager.GetHandler()
+	if err := handler.RegisterTools(server.GetServer()); err != nil {
+		log.Fatalf("Failed to register MCP tools: %v", err)
+	}
+
+	// Warmup cache in background
+	go func() {
+		if err := toolsManager.WarmupCache(ctx); err != nil {
+			log.Printf("Cache warmup failed: %v", err)
+		} else {
+			log.Printf("Cache warmup completed successfully")
+		}
+	}()
+
+	log.Printf("MCP Server initialized with %d tools", len(handler.GetToolsInfo()))
 
 	// Handle graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -119,4 +156,31 @@ func main() {
 	}
 
 	log.Printf("Server stopped")
+}
+
+func initializeCacheManager() *cache.CacheManager {
+	// TODO: 根据实际cache包API调整
+	log.Printf("初始化缓存管理器")
+	// 暂时返回nil，后续根据实际API实现
+	return nil
+}
+
+func initializeCollectorManager() *collector.CollectorManager {
+	// TODO: 根据实际collector包API调整  
+	log.Printf("初始化数据采集管理器")
+	// 暂时返回nil，后续根据实际API实现
+	return nil
+}
+
+func initializeProcessor() *processor.Processor {
+	return processor.NewProcessor(&processor.Config{
+		EnableSummarization:  true,
+		EnableSorting:       true,
+		MaxSummaryLength:    200,
+	})
+}
+
+func initializeFormatterFactory() *formatter.FormatterFactory {
+	config := formatter.DefaultConfig()
+	return formatter.NewFormatterFactory(config)
 }
